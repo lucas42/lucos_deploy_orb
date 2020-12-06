@@ -7,13 +7,13 @@ workflows:
   test-publish:
     jobs:
       - run:
-        name: Create deploy-valen job
-        working_directory: src/jobs
-        command: |
-          sed -n '/^environment:$/,$p' deploy.yml\
-          | sed 's/<< parameters.host-domain >>/valen.s.l42.eu/g'\
-          | sed 's/<< parameters.architecture >>/amd64/g'\
-          > deploy-valen.yml
+          name: Create deploy-valen job
+          working_directory: src/jobs
+          command: |
+            sed -n '/^environment:$/,$p' deploy.yml\
+            | sed 's/<< parameters.host-domain >>/valen.s.l42.eu/g'\
+            | sed 's/<< parameters.architecture >>/amd64/g'\
+            > deploy-valen.yml
       - orb-tools/lint # Lint Yaml files
       - orb-tools/pack: # Pack orb source
           persist-to-workspace: true
