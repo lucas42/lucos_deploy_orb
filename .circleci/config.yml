@@ -8,9 +8,11 @@ workflows:
     jobs:
       - orb-tools/lint # Lint Yaml files
       - orb-tools/pack # Pack orb source
+          persist-to-workspace: true
       - orb-tools/publish-dev:
           orb-name: lucos/deploy
           context: orb-publishing
+          attach-workspace: true
           requires:
             - orb-tools/lint
             - orb-tools/pack
@@ -21,6 +23,7 @@ workflows:
       - orb-tools/publish:
           context: orb-publishing
           orb-ref: lucos/deploy@0.0.0
+          attach-workspace: true
           requires:
             - orb-tools/lint
             - orb-tools/pack
