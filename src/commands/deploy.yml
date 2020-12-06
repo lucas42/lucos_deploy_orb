@@ -1,0 +1,22 @@
+parameters:
+  host-domain:
+    type: string
+  architecture:
+    type: string
+steps:
+  - run:
+      name: Set host domain
+      command: echo "Deploying onto host \"<< parameters.host-domain >>\""
+  - checkout
+  - add_ssh_keys:
+      fingerprints:
+        - "3b:d2:84:bc:c8:2e:09:b7:2f:e7:50:23:46:41:cf:23"
+  - run:
+      name: Populate known_hosts
+      command: ssh-keyscan -H << parameters.host-domain >> >> ~/.ssh/known_hosts
+  - run:
+      name: Pull container onto remote box
+      command: DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>" ARCH=<< parameters.architecture >> docker-compose pull
+  - run:
+      name: Deploy using docker-compose
+      command: DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>" ARCH=<< parameters.architecture >> PRODUCTION=true docker-compose up -d --no-build
