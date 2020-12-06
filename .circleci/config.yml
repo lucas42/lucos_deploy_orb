@@ -22,7 +22,9 @@ jobs:
           name: output to console for debug
           working_directory: src/jobs
           command: cat deploy-valen.yml
-      - persist_to_workspace
+      - persist_to_workspace:
+          root: "."
+          paths: "src"
 
 workflows:
   test-publish:
