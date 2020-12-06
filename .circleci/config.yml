@@ -15,8 +15,8 @@ jobs:
           working_directory: src/jobs
           command: |
             sed -n '/^environment:$/,$p' deploy.yml\
-            | sed 's/\<\< parameters.host-domain \>\>/valen.s.l42.eu/g'\
-            | sed 's/\<\< parameters.architecture \>\>/amd64/g'\
+            | sed 's/<{2} parameters.host-domain >{2}/valen.s.l42.eu/g'\
+            | sed 's/<{2} parameters.architecture >{2}/amd64/g'\
             > deploy-valen.yml
       - run:
           name: output to console for debug
