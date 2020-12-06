@@ -12,22 +12,22 @@ docker:
 
 steps:
   - when:
-    condition:
-      equal: [ main, << pipeline.git.branch >> ]
-    steps:
-      - run:
-          name: Set HOSTDOMAIN
-          command: echo "Deploying onto host \"$HOSTDOMAIN\""
-      - checkout
-      - add_ssh_keys:
-          fingerprints:
-            - "3b:d2:84:bc:c8:2e:09:b7:2f:e7:50:23:46:41:cf:23"
-      - run:
-          name: Populate known_hosts
-          command: ssh-keyscan -H $HOSTDOMAIN >> ~/.ssh/known_hosts
-      - run:
-          name: Pull container onto remote box
-          command: DOCKER_HOST="ssh://$DEPLOY_USERNAME@$HOSTDOMAIN" ARCH=$ARCH docker-compose pull
-      - run:
-          name: Deploy using docker-compose
-          command: DOCKER_HOST="ssh://$DEPLOY_USERNAME@$HOSTDOMAIN" ARCH=$ARCH docker-compose up -d --no-build
+      condition:
+        equal: [ main, << pipeline.git.branch >> ]
+      steps:
+        - run:
+            name: Set HOSTDOMAIN
+            command: echo "Deploying onto host \"$HOSTDOMAIN\""
+        - checkout
+        - add_ssh_keys:
+            fingerprints:
+              - "3b:d2:84:bc:c8:2e:09:b7:2f:e7:50:23:46:41:cf:23"
+        - run:
+            name: Populate known_hosts
+            command: ssh-keyscan -H $HOSTDOMAIN >> ~/.ssh/known_hosts
+        - run:
+            name: Pull container onto remote box
+            command: DOCKER_HOST="ssh://$DEPLOY_USERNAME@$HOSTDOMAIN" ARCH=$ARCH docker-compose pull
+        - run:
+            name: Deploy using docker-compose
+            command: DOCKER_HOST="ssh://$DEPLOY_USERNAME@$HOSTDOMAIN" ARCH=$ARCH docker-compose up -d --no-build
