@@ -8,7 +8,6 @@ workflows:
     jobs:
       - orb-tools/lint # Lint Yaml files
       - orb-tools/pack # Pack orb source
-    jobs:
       - orb-tools/publish-dev:
           orb-name: lucos/deploy
           context: orb-publishing
@@ -19,7 +18,6 @@ workflows:
             branches:
               ignore:
                 - main
-    jobs:
       - orb-tools/publish:
           context: orb-publishing
           orb-ref: lucos/deploy@0.0.0
