@@ -3,44 +3,12 @@ version: 2.1
 orbs:
   orb-tools: circleci/orb-tools@10.0
 
-commands:
-  insert parameters:
-
-
-jobs:
-  parameterise-jobs:
-    docker:
-      - image: circleci/buildpack-deps:buster
-    steps:
-      - checkout
-      - run:
-          name: Create deploy-valen job
-          working_directory: src/jobs
-          command: |
-            sed -n '/^environment:$/,$p' deploy.yml\
-            | sed 's/<\{2\} parameters.host-domain >\{2\}/valen.s.l42.eu/g'\
-            | sed 's/<\{2\} parameters.architecture >\{2\}/amd64/g'\
-            > deploy-valen.yml
-      - run:
-          name: output to console for debug
-          working_directory: src/jobs
-          command: cat deploy-valen.yml
-      - persist_to_workspace:
-          root: "."
-          paths: "src"
-
 workflows:
   test-publish:
     jobs:
-     # - parameterise-jobs
       - orb-tools/lint # Lint Yaml files
-     #     requires:
-     #       - parameterise-jobs
       - orb-tools/pack: # Pack orb source
-      #    attach-workspace: true
           persist-to-workspace: true
-      #    requires:
-      #      - parameterise-jobs
       - orb-tools/publish-dev:
           orb-name: lucos/deploy
           context: orb-publishing
