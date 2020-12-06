@@ -19,4 +19,4 @@ steps:
       command: DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>" ARCH=<< parameters.architecture >> docker-compose pull
   - run:
       name: Deploy using docker-compose
-      command: DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>" ARCH=<< parameters.architecture >> PRODUCTION=true docker-compose HOSTDOMAIN=<< parameters.host-domain >> up -d --no-build
+      command: DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>" ARCH=<< parameters.architecture >> PRODUCTION=true HOSTDOMAIN=<< parameters.host-domain >> docker-compose up -d --no-build
