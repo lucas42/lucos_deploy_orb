@@ -1,0 +1,17 @@
+# This doesn't call out to another box because circleci runs on amd64
+# But might be worth considering spinning up an amd64 build environment for consistency?
+environment:
+  ARCH: amd64
+docker:
+  - image: circleci/buildpack-deps:buster
+steps:
+  - checkout
+  - setup_remote_docker
+  - run:
+      name: Build Docker image
+      command: docker-compose build
+  - run:
+      name: Publish Docker Image to Docker Hub
+      command: |
+        echo "$DOCKERHUB_PASSWORD" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+        docker-compose push
