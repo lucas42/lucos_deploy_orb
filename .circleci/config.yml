@@ -11,8 +11,8 @@ workflows:
   publish-dev:
     jobs:
       - orb-tools/publish-dev:
-        orb-name: lucos/deploy
-        context: orb-publishing
+          orb-name: lucos/deploy
+          context: orb-publishing
     requires:
       - test-pack
     filters:
@@ -21,9 +21,9 @@ workflows:
           - main
   publish-prod:
     jobs:
-      - orb-tools/publish-dev:
-        orb-name: lucos/deploy
-        context: orb-publishing
+      - orb-tools/publish:
+          orb-name: lucos/deploy
+          context: orb-publishing
     requires:
       - test-pack
     filters:
