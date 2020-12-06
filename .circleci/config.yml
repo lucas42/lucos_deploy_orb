@@ -20,9 +20,9 @@ workflows:
             branches:
               ignore:
                 - main
-      - orb-tools/publish:
+      - orb-tools/increment:
           context: orb-publishing
-          orb-ref: lucos/deploy@0.0.0
+          orb-ref: lucos/deploy
           attach-workspace: true
           requires:
             - orb-tools/lint
