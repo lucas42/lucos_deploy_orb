@@ -5,9 +5,9 @@ orbs:
 
 
 jobs:
-  docker:
-    - image: circleci/buildpack-deps:buster
   parameterise-jobs:
+    docker:
+      - image: circleci/buildpack-deps:buster
     steps:
       - run:
           name: Create deploy-valen job
