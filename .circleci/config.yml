@@ -18,6 +18,11 @@ jobs:
             | sed 's/\<\< parameters.host-domain \>\>/valen.s.l42.eu/g'\
             | sed 's/\<\< parameters.architecture \>\>/amd64/g'\
             > deploy-valen.yml
+      - run:
+          name: output to console for debug
+          working_directory: src/jobs
+          command: cat deploy-valen.yml
+      - persist_to_workspace
 
 workflows:
   test-publish:
