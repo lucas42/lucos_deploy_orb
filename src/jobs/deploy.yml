@@ -11,7 +11,7 @@ docker:
   - image: circleci/buildpack-deps:buster
 
 steps:
-  when:
+  - when:
     condition:
       equal: [ main, << pipeline.git.branch >> ]
     steps:
