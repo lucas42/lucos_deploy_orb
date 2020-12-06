@@ -1,7 +1,7 @@
 docker:
   - image: circleci/buildpack-deps:buster
 steps:
-  - deploy:
+  - remote-build:
       build-domain: xwing.s.l42.eu
       ssh-port: 2222
       architecture: arm
