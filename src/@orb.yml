@@ -1,0 +1,8 @@
+version: 2.1
+
+description: >
+  Builds & Deploys lucos projects
+
+display:
+  source_url: "https://github.com/lucas42/lucos-deploy-orb"
+
