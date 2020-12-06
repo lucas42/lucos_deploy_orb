@@ -9,9 +9,10 @@ jobs:
     docker:
       - image: circleci/buildpack-deps:buster
     steps:
+      - checkout
       - run:
           name: Create deploy-valen job
-          working_directory: ./src/jobs
+          working_directory: src/jobs
           command: |
             sed -n '/^environment:$/,$p' deploy.yml\
             | sed 's/\<\< parameters.host-domain \>\>/valen.s.l42.eu/g'\
