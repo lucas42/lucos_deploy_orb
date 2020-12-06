@@ -6,7 +6,7 @@ orbs:
 workflows:
   test-publish:
     jobs:
-      parameterise-jobs:
+      - parameterise-jobs:
         steps:
           - run:
               name: Create deploy-valen job
