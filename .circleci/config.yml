@@ -5,6 +5,8 @@ orbs:
 
 
 jobs:
+  docker:
+    - image: circleci/buildpack-deps:buster
   parameterise-jobs:
     steps:
       - run:
