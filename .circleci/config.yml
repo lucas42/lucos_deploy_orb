@@ -3,6 +3,9 @@ version: 2.1
 orbs:
   orb-tools: circleci/orb-tools@10.0
 
+commands:
+  insert parameters:
+
 
 jobs:
   parameterise-jobs:
@@ -29,15 +32,15 @@ jobs:
 workflows:
   test-publish:
     jobs:
-      - parameterise-jobs
+     # - parameterise-jobs
       - orb-tools/lint: # Lint Yaml files
-          requires:
-            - parameterise-jobs
+     #     requires:
+     #       - parameterise-jobs
       - orb-tools/pack: # Pack orb source
-          attach-workspace: true
+      #    attach-workspace: true
           persist-to-workspace: true
-          requires:
-            - parameterise-jobs
+      #    requires:
+      #      - parameterise-jobs
       - orb-tools/publish-dev:
           orb-name: lucos/deploy
           context: orb-publishing
