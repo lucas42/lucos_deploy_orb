@@ -33,7 +33,7 @@ workflows:
   test-publish:
     jobs:
      # - parameterise-jobs
-      - orb-tools/lint: # Lint Yaml files
+      - orb-tools/lint # Lint Yaml files
      #     requires:
      #       - parameterise-jobs
       - orb-tools/pack: # Pack orb source
