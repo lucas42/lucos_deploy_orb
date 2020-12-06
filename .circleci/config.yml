@@ -4,29 +4,29 @@ orbs:
   orb-tools: circleci/orb-tools@10.0
 
 workflows:
-  test-pack:
+  test-publish:
     jobs:
       - orb-tools/lint # Lint Yaml files
       - orb-tools/pack # Pack orb source
-  publish-dev:
     jobs:
       - orb-tools/publish-dev:
           orb-name: lucos/deploy
           context: orb-publishing
-    requires:
-      - test-pack
-    filters:
-      branches:
-        ignore:
-          - main
-  publish-prod:
+          requires:
+            - orb-tools/lint
+            - orb-tools/pack
+          filters:
+            branches:
+              ignore:
+                - main
     jobs:
       - orb-tools/publish:
           context: orb-publishing
           orb-ref: lucos/deploy@0.0.0
-    requires:
-      - test-pack
-    filters:
-      branches:
-        only:
-          - main
+          requires:
+            - orb-tools/lint
+            - orb-tools/pack
+          filters:
+            branches:
+              only:
+                - main
