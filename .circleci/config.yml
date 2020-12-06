@@ -7,7 +7,7 @@ workflows:
   test-publish:
     jobs:
       - orb-tools/lint # Lint Yaml files
-      - orb-tools/pack # Pack orb source
+      - orb-tools/pack: # Pack orb source
           persist-to-workspace: true
       - orb-tools/publish-dev:
           orb-name: lucos/deploy
