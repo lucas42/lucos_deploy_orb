@@ -24,6 +24,7 @@ workflows:
       - orb-tools/publish:
           orb-name: lucos/deploy
           context: orb-publishing
+          orb-ref: lucos/deploy@0.0.0
     requires:
       - test-pack
     filters:
