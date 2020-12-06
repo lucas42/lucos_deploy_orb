@@ -11,8 +11,8 @@ workflows:
           working_directory: src/jobs
           command: |
             sed -n '/^environment:$/,$p' deploy.yml\
-            | sed 's/<< parameters.host-domain >>/valen.s.l42.eu/g'\
-            | sed 's/<< parameters.architecture >>/amd64/g'\
+            | sed 's/\<\< parameters.host-domain \>\>/valen.s.l42.eu/g'\
+            | sed 's/\<\< parameters.architecture \>\>/amd64/g'\
             > deploy-valen.yml
       - orb-tools/lint # Lint Yaml files
       - orb-tools/pack: # Pack orb source
