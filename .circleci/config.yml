@@ -17,7 +17,6 @@ jobs:
             | sed 's/\<\< parameters.host-domain \>\>/valen.s.l42.eu/g'\
             | sed 's/\<\< parameters.architecture \>\>/amd64/g'\
             > deploy-valen.yml
-    persist-to-workspace: true
 
 workflows:
   test-publish:
