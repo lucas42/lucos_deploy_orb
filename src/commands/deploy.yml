@@ -15,8 +15,10 @@ steps:
       name: Populate known_hosts
       command: ssh-keyscan -H << parameters.host-domain >> >> ~/.ssh/known_hosts
   - run:
-      name: Pull container onto remote box
+      name: Pull container(s) onto remote box
       command: DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>" ARCH=<< parameters.architecture >> docker-compose pull
   - run:
       name: Deploy using docker-compose
+      environment:
+        COMPOSE_PROJECT_NAME: $CIRCLE_PROJECT_REPONAME
       command: DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>" ARCH=<< parameters.architecture >> PRODUCTION=true HOSTDOMAIN=<< parameters.host-domain >> docker-compose up -d --no-build
