@@ -1,5 +1,5 @@
 docker:
-  - image: circleci/buildpack-deps:buster
+  - image: circleci/buildpack-deps@sha256:3c09a91c14193f17287c1dfa00fcfdc2cb1d810c10be3b2f16132f1a6d5d50d1
 steps:
   - deploy:
       host-domain: valen.s.l42.eu
