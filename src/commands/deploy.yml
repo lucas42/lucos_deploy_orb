@@ -19,6 +19,7 @@ steps:
       command: |
         DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>" \
         ARCH=<< parameters.architecture >> \
+        COMPOSE_PARAMIKO_SSH=1 \
         docker-compose pull
   - run:
       name: Deploy using docker-compose
@@ -28,4 +29,5 @@ steps:
         ARCH=<< parameters.architecture >> \
         PRODUCTION=true \
         HOSTDOMAIN=<< parameters.host-domain >> \
+        COMPOSE_PARAMIKO_SSH=1 \
         docker-compose up -d --no-build
