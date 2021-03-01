@@ -16,7 +16,7 @@ jobs:
               "source":"lucos_deploy_orb",
               "systemDeployed":"$CIRCLE_PROJECT_REPONAME",
               "humanReadable":"Published circleci orb $CIRCLE_PROJECT_REPONAME"
-            }' -H "Content-Type: application/json"
+            }' -H "Content-Type: application/json" --fail
 
 workflows:
   test-publish:
