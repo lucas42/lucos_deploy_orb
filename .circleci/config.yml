@@ -11,11 +11,11 @@ jobs:
       - run:
           name: Send deploy log to loganne
           command: |
-            curl https://loganne.l42.eu/events --data '{\
-              "type":"publishedOrb",\
-              "source":"lucos_deploy_orb",\
-              "systemDeployed":"$CIRCLE_PROJECT_REPONAME",\
-              "humanReadable":"Published circleci orb $CIRCLE_PROJECT_REPONAME"\
+            curl https://loganne.l42.eu/events --data '{
+              "type":"publishedOrb",
+              "source":"lucos_deploy_orb",
+              "systemDeployed":"$CIRCLE_PROJECT_REPONAME",
+              "humanReadable":"Published circleci orb $CIRCLE_PROJECT_REPONAME"
             }' -H "Content-Type: application/json"
 
 workflows:

@@ -32,10 +32,10 @@ steps:
   - run:
       name: Send deploy log to loganne
       command: |
-        curl https://loganne.l42.eu/events --data '{\
-          "type":"deploySystem",\
-          "source":"lucos_deploy_orb",\
-          "systemDeployed":"$CIRCLE_PROJECT_REPONAME",\
-          "deployTarget":"<< parameters.host-domain >>",\
-          "humanReadable":"Deployed $CIRCLE_PROJECT_REPONAME to << parameters.host-domain >>"\
+        curl https://loganne.l42.eu/events --data '{
+          "type":"deploySystem",
+          "source":"lucos_deploy_orb",
+          "systemDeployed":"$CIRCLE_PROJECT_REPONAME",
+          "deployTarget":"<< parameters.host-domain >>",
+          "humanReadable":"Deployed $CIRCLE_PROJECT_REPONAME to << parameters.host-domain >>"
         }' -H "Content-Type: application/json"
