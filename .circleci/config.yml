@@ -3,6 +3,21 @@ version: 2.1
 orbs:
   orb-tools: circleci/orb-tools@10.0
 
+jobs:
+  deploy-log:
+    docker:
+      - image: circleci/buildpack-deps:buster
+    steps:
+      - run:
+          name: Send deploy log to loganne
+          command: |
+            curl https://loganne.l42.eu/events --data '{\
+              "type":"publishedOrb",\
+              "source":"lucos_deploy_orb",\
+              "systemDeployed":"$CIRCLE_PROJECT_REPONAME",\
+              "humanReadable":"Published circleci orb $CIRCLE_PROJECT_REPONAME"\
+            }' -H "Content-Type: application/json"
+
 workflows:
   test-publish:
     jobs:
@@ -27,6 +42,13 @@ workflows:
           requires:
             - orb-tools/lint
             - orb-tools/pack
+          filters:
+            branches:
+              only:
+                - main
+      - deploy-log:
+          requires:
+            - orb-tools/increment
           filters:
             branches:
               only:
