@@ -1,6 +1,0 @@
-docker:
-  - image: circleci/buildpack-deps:buster
-steps:
-  - deploy:
-      host-domain: valen.s.l42.eu
-      architecture: amd64
