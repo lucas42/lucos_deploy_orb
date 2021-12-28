@@ -6,7 +6,8 @@ docker:
   - image: circleci/buildpack-deps:buster
 steps:
   - checkout
-  - setup_remote_docker
+  - setup_remote_docker:
+      version: 20.10.11 # Use latest version of docker to address problem on alpine 17 (https://gitlab.alpinelinux.org/alpine/aports/-/issues/12396)
   - run:
       name: Build Docker image
       command: docker-compose build
