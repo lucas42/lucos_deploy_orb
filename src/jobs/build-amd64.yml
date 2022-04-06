@@ -3,7 +3,7 @@
 environment:
   ARCH: amd64
 docker:
-  - image: circleci/buildpack-deps:buster
+  - image: cimg/base:current
 steps:
   - checkout
   - setup_remote_docker:
