@@ -29,13 +29,6 @@ steps:
         PRODUCTION=true \
         HOSTDOMAIN=<< parameters.host-domain >> \
         docker-compose up -d --no-build
-  - when:
-      condition:
-        equal: ["lucos_loganne" , $CIRCLE_PROJECT_REPONAME]
-      steps:
-        - run:
-            name: Give loganne time to finish starting before logging to itself
-            command: sleep 15
   - run:
       name: Send deploy log to loganne
       command: |
