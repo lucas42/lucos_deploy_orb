@@ -6,7 +6,7 @@ orbs:
 jobs:
   deploy-log:
     docker:
-      - image: circleci/buildpack-deps:buster
+      - image: cimg/base:current
     steps:
       - run:
           name: Send deploy log to loganne
