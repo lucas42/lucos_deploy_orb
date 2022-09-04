@@ -1,5 +1,5 @@
 docker:
-  - image: cimg/base:edge-22.04
+  - image: cimg/base:current
 steps:
   - deploy:
       host-domain: avalon.s.l42.eu
