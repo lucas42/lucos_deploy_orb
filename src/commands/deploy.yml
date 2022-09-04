@@ -19,11 +19,14 @@ steps:
 
       # HACK: Not specifying a service should pull all services
       # However, this is failing in docker compose v2.10.2 in a difficult-to-debug manner
-      # As a workaround, parse the list of services from the config file and pass them into the command
+      # As a workaround, parse the list of services from the config file pull each service one-by-one
       command: |
-        DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>" \
-        ARCH=<< parameters.architecture >> \
-        docker-compose pull `yq '.services | keys' docker-compose.y*ml | tr -d '\n-'`
+        yq '.services | keys' docker-compose.y*ml | tr -d '-' | while read service
+        do
+          DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>" \
+          ARCH=<< parameters.architecture >> \
+          docker-compose pull $service
+        done
   - run:
       name: Deploy using docker-compose
       command: |
