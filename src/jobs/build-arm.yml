@@ -5,4 +5,3 @@ steps:
       build-domain: xwing.s.l42.eu
       ssh-port: 2222
       architecture: arm
-      no_output_timeout: 30m
