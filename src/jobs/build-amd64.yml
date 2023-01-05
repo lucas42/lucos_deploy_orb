@@ -14,5 +14,5 @@ steps:
   - run:
       name: Publish Docker Image to Docker Hub
       command: |
-        echo "$DOCKERHUB_PASSWORD" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+        echo "$DOCKERHUB_ACCESS_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         docker-compose push
