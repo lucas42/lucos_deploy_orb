@@ -17,6 +17,18 @@ jobs:
               "systemDeployed":"'"$CIRCLE_PROJECT_REPONAME"'",
               "humanReadable":"Published circleci orb '"$CIRCLE_PROJECT_REPONAME"'"
             }' -H "Content-Type: application/json" --fail
+      # Loganne often fails to respond in time if it itself (or lucos_router) has just been
+      # deploy and hasn't yet finished starting up.  On fail, wait 15 secs and try again.
+      - run:
+          name: Retry deploy log to loganne
+          when: on_fail
+          command: |
+            sleep 15 && curl https://loganne.l42.eu/events --data '{
+              "type":"publishedOrb",
+              "source":"lucos_deploy_orb",
+              "systemDeployed":"'"$CIRCLE_PROJECT_REPONAME"'",
+              "humanReadable":"Published circleci orb '"$CIRCLE_PROJECT_REPONAME"'"
+            }' -H "Content-Type: application/json" --fail
 
 workflows:
   test-publish:
