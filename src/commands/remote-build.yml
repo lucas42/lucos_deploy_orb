@@ -11,7 +11,7 @@ steps:
       command: echo "Building on host \"<< parameters.build-domain >>\""
   - add_ssh_keys:
       fingerprints:
-        - "3b:d2:84:bc:c8:2e:09:b7:2f:e7:50:23:46:41:cf:23"
+        - "b7:75:7e:64:66:44:40:06:95:b4:ad:cd:07:a7:6f:08"
   - run:
       name: Populate known_hosts
       command: ssh-keyscan -p << parameters.ssh-port >> -H << parameters.build-domain >> >> ~/.ssh/known_hosts
