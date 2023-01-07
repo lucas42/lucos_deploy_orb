@@ -38,6 +38,8 @@ steps:
         docker-compose up -d --no-build
   - run:
       name: Send deploy log to loganne
+      # Loganne often fails to respond in time if it itself (or lucos_router) has just been
+      # deployed and hasn't yet finished starting up.  On fail, wait 15 secs and try again.
       command: |
         curl https://loganne.l42.eu/events --data '{
           "type":"deploySystem",
@@ -45,14 +47,9 @@ steps:
           "systemDeployed":"'"$CIRCLE_PROJECT_REPONAME"'",
           "deployTarget":"<< parameters.host-domain >>",
           "humanReadable":"Deployed '"$CIRCLE_PROJECT_REPONAME"' to << parameters.host-domain >>"
-        }' -H "Content-Type: application/json" --fail
-  # Loganne often fails to respond in time if it itself (or lucos_router) has just been
-  # deploy and hasn't yet finished starting up.  On fail, wait 15 secs and try again.
-  - run:
-      name: Send deploy log to loganne
-      when: on_fail
-      command: |
-        sleep 15 && curl https://loganne.l42.eu/events --data '{
+        }' -H "Content-Type: application/json" --fail || \
+        sleep 15 && \
+        curl https://loganne.l42.eu/events --data '{
           "type":"deploySystem",
           "source":"lucos_deploy_orb",
           "systemDeployed":"'"$CIRCLE_PROJECT_REPONAME"'",
