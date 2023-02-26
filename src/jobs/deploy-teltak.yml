@@ -1,0 +1,7 @@
+docker:
+  - image: cimg/base:current
+steps:
+  - deploy:
+      host-domain: teltak.s.l42.eu
+      ssh-port: 2201
+      architecture: arm
