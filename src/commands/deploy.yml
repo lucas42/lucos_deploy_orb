@@ -1,6 +1,9 @@
 parameters:
   host-domain:
     type: string
+  ssh-port:
+    type: integer
+    default: 22
   architecture:
     type: string
 steps:
@@ -13,7 +16,7 @@ steps:
         - "b7:75:7e:64:66:44:40:06:95:b4:ad:cd:07:a7:6f:08"
   - run:
       name: Populate known_hosts
-      command: ssh-keyscan -H << parameters.host-domain >> >> ~/.ssh/known_hosts
+      command: ssh-keyscan -H << parameters.host-domain >> -p << parameters.ssh-port >> >> ~/.ssh/known_hosts
   - run:
       name: Pull container(s) onto remote box
 
@@ -23,14 +26,14 @@ steps:
       command: |
         yq '.services | keys' docker-compose.y*ml | tr -d '-' | while read service
         do
-          DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>" \
+          DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
           ARCH=<< parameters.architecture >> \
           docker-compose pull $service
         done
   - run:
       name: Deploy using docker-compose
       command: |
-        DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>" \
+        DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
         COMPOSE_PROJECT_NAME=$CIRCLE_PROJECT_REPONAME \
         ARCH=<< parameters.architecture >> \
         PRODUCTION=true \
@@ -46,6 +49,7 @@ steps:
           "source":"lucos_deploy_orb",
           "systemDeployed":"'"$CIRCLE_PROJECT_REPONAME"'",
           "deployTarget":"<< parameters.host-domain >>",
+          "sshPort":"<< parameters.ssh-port >>",
           "humanReadable":"Deployed '"$CIRCLE_PROJECT_REPONAME"' to << parameters.host-domain >>"
         }' -H "Content-Type: application/json" --fail || \
         (sleep 15 && \
@@ -54,5 +58,6 @@ steps:
           "source":"lucos_deploy_orb",
           "systemDeployed":"'"$CIRCLE_PROJECT_REPONAME"'",
           "deployTarget":"<< parameters.host-domain >>",
+          "sshPort":"<< parameters.ssh-port >>",
           "humanReadable":"Deployed '"$CIRCLE_PROJECT_REPONAME"' to << parameters.host-domain >>"
         }' -H "Content-Type: application/json" --fail)
