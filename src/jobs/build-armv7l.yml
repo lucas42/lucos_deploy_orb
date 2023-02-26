@@ -1,4 +1,3 @@
-# Legacy job for backwards compatibility.  Move to using build-armv7l.yml instead
 docker:
   - image: cimg/base:current
 steps:

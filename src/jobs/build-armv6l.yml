@@ -1,0 +1,7 @@
+docker:
+  - image: cimg/base:current
+steps:
+  - remote-build:
+      build-domain: teltak.s.l42.eu
+      ssh-port: 2223
+      architecture: armv6l

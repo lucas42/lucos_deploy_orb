@@ -3,4 +3,4 @@ docker:
 steps:
   - deploy:
       host-domain: xwing.s.l42.eu
-      architecture: arm
+      architecture: armv7l
