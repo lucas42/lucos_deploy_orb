@@ -16,7 +16,7 @@ steps:
         - "b7:75:7e:64:66:44:40:06:95:b4:ad:cd:07:a7:6f:08"
   - run:
       name: Populate known_hosts
-      command: ssh-keyscan -H << parameters.host-domain >> -p << parameters.ssh-port >> >> ~/.ssh/known_hosts
+      command: ssh-keyscan -p << parameters.ssh-port >> -H << parameters.host-domain >> >> ~/.ssh/known_hosts
   - run:
       name: Pull container(s) onto remote box
 
