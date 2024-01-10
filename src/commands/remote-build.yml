@@ -17,5 +17,5 @@ steps:
       command: ssh-keyscan -p << parameters.ssh-port >> -H << parameters.build-domain >> >> ~/.ssh/known_hosts
   - run:
       name: Remote build
-      command: ssh $DEPLOY_USERNAME@<< parameters.build-domain >> -o "StrictHostKeyChecking no" -A -p << parameters.ssh-port >> CIRCLE_REPOSITORY_URL=$CIRCLE_REPOSITORY_URL DOCKERHUB_USERNAME=$DOCKERHUB_USERNAME DOCKERHUB_ACCESS_TOKEN=$DOCKERHUB_ACCESS_TOKEN ARCH=<< parameters.architecture >> quickbuild.sh
+      command: ssh $DEPLOY_USERNAME@<< parameters.build-domain >> -o "StrictHostKeyChecking no" -A -p << parameters.ssh-port >> CIRCLE_REPOSITORY_URL=$CIRCLE_REPOSITORY_URL CIRCLE_BRANCH=$CIRCLE_BRANCH DOCKERHUB_USERNAME=$DOCKERHUB_USERNAME DOCKERHUB_ACCESS_TOKEN=$DOCKERHUB_ACCESS_TOKEN ARCH=<< parameters.architecture >> quickbuild.sh
       no_output_timeout: 30m
