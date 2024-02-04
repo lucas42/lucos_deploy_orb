@@ -16,7 +16,9 @@ steps:
         - "b7:75:7e:64:66:44:40:06:95:b4:ad:cd:07:a7:6f:08"
   - run:
       name: Populate known_hosts
-      command: ssh-keyscan -p << parameters.ssh-port >> -H << parameters.host-domain >> >> ~/.ssh/known_hosts
+      command: |
+        ssh-keyscan -p << parameters.ssh-port >> -H << parameters.host-domain >> >> ~/.ssh/known_hosts && \
+        ssh-keyscan -p 2202 -H creds.l42.eu >> ~/.ssh/known_hosts
   - run:
       name: Pull container(s) onto remote box
 
@@ -31,6 +33,10 @@ steps:
           docker-compose pull $service
         done
   - run:
+      name: Fetch production envfile
+      command: |
+        scp -P 2202 -o BatchMode=yes $DEPLOY_USERNAME@creds.l42.eu:$CIRCLE_PROJECT_REPONAME/production/.env .
+  - run:
       name: Deploy using docker-compose
       command: |
         DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
@@ -39,6 +45,10 @@ steps:
         PRODUCTION=true \
         HOSTDOMAIN=<< parameters.host-domain >> \
         docker-compose up -d --no-build
+  - run:
+      name: Delete envfile
+      command: |
+        rm .env
   - run:
       name: Send deploy log to loganne
       # Loganne often fails to respond in time if it itself (or lucos_router) has just been
