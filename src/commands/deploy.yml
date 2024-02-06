@@ -32,10 +32,10 @@ steps:
           ARCH=<< parameters.architecture >> \
           docker-compose pull $service
         done
-  - run:
-      name: Fetch production envfile
-      command: |
-        scp -P 2202 -o BatchMode=yes $DEPLOY_USERNAME@creds.l42.eu:$CIRCLE_PROJECT_REPONAME/production/.env .
+#  - run:
+#      name: Fetch production envfile
+#      command: |
+#        scp -P 2202 -o BatchMode=yes $DEPLOY_USERNAME@creds.l42.eu:$CIRCLE_PROJECT_REPONAME/production/.env .
   - run:
       name: Deploy using docker-compose
       command: |
@@ -48,7 +48,7 @@ steps:
   - run:
       name: Delete envfile
       command: |
-        rm .env
+        rm -f .env
   - run:
       name: Send deploy log to loganne
       # Loganne often fails to respond in time if it itself (or lucos_router) has just been
