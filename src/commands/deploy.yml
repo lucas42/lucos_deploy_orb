@@ -32,10 +32,10 @@ steps:
           ARCH=<< parameters.architecture >> \
           docker-compose pull $service
         done
-#  - run:
-#      name: Fetch production envfile
-#      command: |
-#        scp -P 2202 -o BatchMode=yes $DEPLOY_USERNAME@creds.l42.eu:$CIRCLE_PROJECT_REPONAME/production/.env .
+  - run:
+      name: Fetch production envfile
+      command: |
+        scp -s -P 2202 -o BatchMode=yes $DEPLOY_USERNAME@creds.l42.eu:$CIRCLE_PROJECT_REPONAME/production/.env .
   - run:
       name: Deploy using docker-compose
       command: |
