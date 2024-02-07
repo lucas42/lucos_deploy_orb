@@ -14,7 +14,13 @@ steps:
         - "b7:75:7e:64:66:44:40:06:95:b4:ad:cd:07:a7:6f:08"
   - run:
       name: Populate known_hosts
-      command: ssh-keyscan -p << parameters.ssh-port >> -H << parameters.build-domain >> >> ~/.ssh/known_hosts
+      command: |
+        ssh-keyscan -p << parameters.ssh-port >> -H << parameters.build-domain >> >> ~/.ssh/known_hosts && \
+        ssh-keyscan -p 2202 -H creds.l42.eu >> ~/.ssh/known_hosts
+  - run:
+      name: Fetch build envfile
+      command: |
+        scp -s -P 2202 -o BatchMode=yes $DEPLOY_USERNAME@creds.l42.eu:lucos_deploy_orb/build/.env /dev/stdout >> "$BASH_ENV"
   - run:
       name: Remote build
       command: ssh $DEPLOY_USERNAME@<< parameters.build-domain >> -o "StrictHostKeyChecking no" -A -p << parameters.ssh-port >> CIRCLE_REPOSITORY_URL=$CIRCLE_REPOSITORY_URL CIRCLE_BRANCH=$CIRCLE_BRANCH DOCKERHUB_USERNAME=$DOCKERHUB_USERNAME DOCKERHUB_ACCESS_TOKEN=$DOCKERHUB_ACCESS_TOKEN ARCH=<< parameters.architecture >> quickbuild.sh

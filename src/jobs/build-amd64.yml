@@ -9,6 +9,14 @@ steps:
   - setup_remote_docker:
       version: 20.10.11 # Use latest version of docker to address problem on alpine 17 (https://gitlab.alpinelinux.org/alpine/aports/-/issues/12396)
   - run:
+      name: Populate known_hosts
+      command: |
+        ssh-keyscan -p 2202 -H creds.l42.eu >> ~/.ssh/known_hosts
+  - run:
+      name: Fetch build envfile
+      command: |
+        scp -s -P 2202 -o BatchMode=yes $DEPLOY_USERNAME@creds.l42.eu:lucos_deploy_orb/build/.env /dev/stdout >> "$BASH_ENV"
+  - run:
       name: Build Docker image
       command: docker-compose build
   - run:
