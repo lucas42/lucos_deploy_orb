@@ -28,18 +28,18 @@ steps:
       command: |
         yq '.services | keys' docker-compose.y*ml | tr -d '-' | while read service
         do
-          DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
+          DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
           ARCH=<< parameters.architecture >> \
           docker-compose pull $service
         done
   - run:
       name: Fetch production envfile
       command: |
-        scp -s -P 2202 -o BatchMode=yes $DEPLOY_USERNAME@creds.l42.eu:$CIRCLE_PROJECT_REPONAME/production/.env .
+        scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:$CIRCLE_PROJECT_REPONAME/production/.env .
   - run:
       name: Deploy using docker-compose
       command: |
-        DOCKER_HOST="ssh://$DEPLOY_USERNAME@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
+        DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
         COMPOSE_PROJECT_NAME=$CIRCLE_PROJECT_REPONAME \
         ARCH=<< parameters.architecture >> \
         PRODUCTION=true \
