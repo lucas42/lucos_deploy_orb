@@ -1,8 +1,0 @@
-# Legacy job for backwards compatibility.  Move to using build-armv7l.yml instead
-docker:
-  - image: cimg/base:current
-steps:
-  - remote-build:
-      build-domain: xwing.s.l42.eu
-      ssh-port: 2222
-      architecture: armv7l
