@@ -2,6 +2,6 @@ docker:
   - image: cimg/base:current
 steps:
   - remote-build:
-      build-domain: salvare.s.l42.eu
-      ssh-port: 2222
+      build-domain: salvare-v4.s.l42.eu
+      ssh-port: 2224
       architecture: arm64

@@ -2,5 +2,5 @@ docker:
   - image: cimg/base:current
 steps:
   - deploy:
-      host-domain: xwing.s.l42.eu
+      host-domain: xwing-v4.s.l42.eu
       architecture: armv7l

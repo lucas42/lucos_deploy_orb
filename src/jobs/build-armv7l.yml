@@ -2,6 +2,6 @@ docker:
   - image: cimg/base:current
 steps:
   - remote-build:
-      build-domain: xwing.s.l42.eu
-      ssh-port: 2222
+      build-domain: xwing-v4.s.l42.eu
+      ssh-port: 2223
       architecture: armv7l
