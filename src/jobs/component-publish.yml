@@ -16,3 +16,13 @@ steps:
         npm set //registry.npmjs.org/:_authToken=$NPM_TOKEN
         npm install
         npm publish
+  - run:
+      name: Send publish log to loganne
+      command: |
+        curl https://loganne.l42.eu/events --data '{
+          "type":"publishedComponent",
+          "source":"lucos_deploy_orb",
+          "componentDeployed":"'"$CIRCLE_PROJECT_REPONAME"'",
+          "humanReadable":"Published version '`npm pkg get version | sed s/\"//g`' of component '"$CIRCLE_PROJECT_REPONAME"' to npm",
+          "version": '`npm pkg get version`'
+        }' -H "Content-Type: application/json" --fail
