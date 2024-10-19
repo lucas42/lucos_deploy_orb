@@ -1,0 +1,7 @@
+docker:
+  - image: cimg/base:current
+steps:
+  - deploy:
+      host-domain: virgon-express-v4.s.l42.eu
+      ssh-port: 2202
+      architecture: arm64
