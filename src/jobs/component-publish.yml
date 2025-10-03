@@ -41,7 +41,7 @@ steps:
         curl https://loganne.l42.eu/events --data '{
           "type":"publishedComponent",
           "source":"lucos_deploy_orb",
-          "componentDeployed":"'"$CIRCLE_PROJECT_REPONAME"'",
-          "humanReadable":"Published version '"$VERSION"' of component '"$CIRCLE_PROJECT_REPONAME"' to npm",
-          "version": '"$VERSION"'
+          "componentDeployed":"'$CIRCLE_PROJECT_REPONAME'",
+          "humanReadable":"Published version '$VERSION' of component '$CIRCLE_PROJECT_REPONAME' to npm",
+          "version": "'$VERSION'"
         }' -H "Content-Type: application/json" --fail
