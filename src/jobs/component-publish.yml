@@ -1,28 +1,47 @@
 docker:
   - image: cimg/node:current
+
 steps:
   - checkout
+
   - run:
       name: Populate known_hosts
       command: |
         ssh-keyscan -p 2202 -H creds.l42.eu >> ~/.ssh/known_hosts
+
   - run:
       name: Fetch publish envfile
       command: |
         scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:lucos_deploy_orb/publish/.env /dev/stdout >> "$BASH_ENV"
+
+  - run:
+      name: Install dependencies
+      command: npm install
+
+  - run:
+      name: Conditional build
+      command: |
+        if node -e "process.exit(!(require('./package.json').scripts?.build))"; then
+          echo "No build script found, skipping build."
+        else
+          echo "Build script found, running npm run build..."
+          npm run build
+        fi
+
   - run:
       name: Publish to NPM
       command: |
         npm set //registry.npmjs.org/:_authToken=$NPM_TOKEN
-        npm install
         npm publish
+
   - run:
       name: Send publish log to loganne
       command: |
+        VERSION=$(npm pkg get version | sed s/\"//g)
         curl https://loganne.l42.eu/events --data '{
           "type":"publishedComponent",
           "source":"lucos_deploy_orb",
           "componentDeployed":"'"$CIRCLE_PROJECT_REPONAME"'",
-          "humanReadable":"Published version '`npm pkg get version | sed s/\"//g`' of component '"$CIRCLE_PROJECT_REPONAME"' to npm",
-          "version": '`npm pkg get version`'
+          "humanReadable":"Published version '"$VERSION"' of component '"$CIRCLE_PROJECT_REPONAME"' to npm",
+          "version": '"$VERSION"'
         }' -H "Content-Type: application/json" --fail
