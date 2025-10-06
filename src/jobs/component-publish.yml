@@ -19,14 +19,9 @@ steps:
       command: npm install
 
   - run:
-      name: Conditional build
+      name: Build component
       command: |
-        if node -e "process.exit(!(require('./package.json').scripts?.build))"; then
-          echo "No build script found, skipping build."
-        else
-          echo "Build script found, running npm run build..."
-          npm run build
-        fi
+        npm run build
 
   - run:
       name: Publish to NPM
