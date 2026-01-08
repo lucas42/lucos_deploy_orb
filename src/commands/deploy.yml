@@ -20,6 +20,10 @@ steps:
         ssh-keyscan -p << parameters.ssh-port >> -H << parameters.host-domain >> >> ~/.ssh/known_hosts && \
         ssh-keyscan -p 2202 -H creds.l42.eu >> ~/.ssh/known_hosts
   - run:
+      name: Fetch production envfile
+      command: |
+        scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:$CIRCLE_PROJECT_REPONAME/production/.env .
+  - run:
       name: Pull container(s) onto remote box
 
       # HACK: Not specifying a service should pull all services
@@ -32,10 +36,6 @@ steps:
           ARCH=<< parameters.architecture >> \
           docker compose pull $service
         done
-  - run:
-      name: Fetch production envfile
-      command: |
-        scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:$CIRCLE_PROJECT_REPONAME/production/.env .
   - run:
       name: Deploy using docker compose
       command: |
