@@ -22,4 +22,4 @@ steps:
       name: Publish Docker Image to Docker Hub
       command: |
         echo "$DOCKERHUB_ACCESS_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
-        docker compose push
+        PORT=1234 docker compose push
