@@ -17,7 +17,7 @@ steps:
         scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:lucos_deploy_orb/build/.env /dev/stdout >> "$BASH_ENV"
   - run:
       name: Build Docker image
-      command: docker-compose build
+      command: PORT=1234 docker-compose build
   - run:
       name: Publish Docker Image to Docker Hub
       command: |
