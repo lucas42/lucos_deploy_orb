@@ -23,5 +23,5 @@ steps:
         scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:lucos_deploy_orb/build/.env /dev/stdout >> "$BASH_ENV"
   - run:
       name: Remote build
-      command: ssh docker-deploy@<< parameters.build-domain >> -o "StrictHostKeyChecking no" -A -p << parameters.ssh-port >> CIRCLE_REPOSITORY_URL=$CIRCLE_REPOSITORY_URL CIRCLE_BRANCH=$CIRCLE_BRANCH DOCKERHUB_USERNAME=$DOCKERHUB_USERNAME DOCKERHUB_ACCESS_TOKEN=$DOCKERHUB_ACCESS_TOKEN ARCH=<< parameters.architecture PORT=1234 >> quickbuild.sh
+      command: ssh docker-deploy@<< parameters.build-domain >> -o "StrictHostKeyChecking no" -A -p << parameters.ssh-port >> CIRCLE_REPOSITORY_URL=$CIRCLE_REPOSITORY_URL CIRCLE_BRANCH=$CIRCLE_BRANCH DOCKERHUB_USERNAME=$DOCKERHUB_USERNAME DOCKERHUB_ACCESS_TOKEN=$DOCKERHUB_ACCESS_TOKEN ARCH=<< parameters.architecture >> PORT=1234 quickbuild.sh
       no_output_timeout: 30m
