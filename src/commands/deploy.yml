@@ -30,21 +30,21 @@ steps:
         do
           DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
           ARCH=<< parameters.architecture >> \
-          docker-compose pull $service
+          docker compose pull $service
         done
   - run:
       name: Fetch production envfile
       command: |
         scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:$CIRCLE_PROJECT_REPONAME/production/.env .
   - run:
-      name: Deploy using docker-compose
+      name: Deploy using docker compose
       command: |
         DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
         COMPOSE_PROJECT_NAME=$CIRCLE_PROJECT_REPONAME \
         ARCH=<< parameters.architecture >> \
         PRODUCTION=true \
         HOSTDOMAIN=<< parameters.host-domain >> \
-        docker-compose up -d --no-build
+        docker compose up -d --no-build
   - run:
       name: Delete envfile
       command: |
