@@ -29,7 +29,14 @@ steps:
       name: Run Semantic Release
       command: |
         source $BASH_ENV
-        # Explicitly request both the main tool and the exec plugin
+        # 1. Ensure the token is exported to child processes
+        export GITHUB_TOKEN=$GITHUB_TOKEN
+
+        # 2. Tell Git to use the token for this repository URL
+        # This overrides the SSH deploy key and forces HTTPS with the token
+        git config remote.origin.url "https://x-access-token:${GITHUB_TOKEN}@github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git"
+
+        # 3. Run the tool
         npx --package semantic-release --package @semantic-release/exec semantic-release
   - run:
       name: Halt if no release
