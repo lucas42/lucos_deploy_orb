@@ -2,8 +2,8 @@ docker:
   - image: cimg/node:current
 steps:
   - checkout
-  - calc-version
   - fetch-publish-creds
+  - calc-version
   - publish-npm
   - loganne-publish:
       tech: "npm"

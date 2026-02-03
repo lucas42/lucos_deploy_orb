@@ -2,8 +2,8 @@ docker:
   - image: cimg/python:3.11-node
 steps:
   - checkout
-  - calc-version
   - fetch-publish-creds
+  - calc-version
   - publish-pip
   - loganne-publish:
       tech: "pypi"

@@ -2,8 +2,8 @@ docker:
   - image: cimg/base:current
 steps:
   - checkout
-  - calc-version
   - fetch-publish-creds
+  - calc-version
   - publish-docker
   - loganne-publish:
       tech: "dockerhub"
