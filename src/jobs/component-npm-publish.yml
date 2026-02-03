@@ -3,17 +3,6 @@ docker:
 
 steps:
   - checkout
-
-  - run:
-      name: Populate known_hosts
-      command: |
-        ssh-keyscan -p 2202 -H creds.l42.eu >> ~/.ssh/known_hosts
-
-  - run:
-      name: Fetch publish envfile
-      command: |
-        scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:lucos_deploy_orb/publish/.env /dev/stdout >> "$BASH_ENV"
-
   - run:
       name: Install dependencies
       command: npm install
@@ -23,6 +12,7 @@ steps:
       command: |
         npm run build
 
+  - fetch-publish-creds
   - run:
       name: Publish to NPM
       command: |
