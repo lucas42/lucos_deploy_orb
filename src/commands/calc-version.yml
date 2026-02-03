@@ -16,6 +16,16 @@ steps:
         }
         EOF
   - run:
+    name: Token Check
+    command: |
+      source $BASH_ENV
+      if [ -z "$GITHUB_TOKEN" ]; then
+        echo "GITHUB_TOKEN is NOT set. Check this is configured correctly in lucos_creds"
+        exit 1
+      else
+        echo "GITHUB_TOKEN is set (Length: ${#GITHUB_TOKEN})"
+      fi
+  - run:
       name: Run Semantic Release
       command: |
         source $BASH_ENV
