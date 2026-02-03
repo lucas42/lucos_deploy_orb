@@ -6,7 +6,14 @@ steps:
         cat \<< 'EOF' > .releaserc.json
         {
           "plugins": [
-            "@semantic-release/commit-analyzer",
+            ["@semantic-release/commit-analyzer", {
+              "preset": "angular",
+              "releaseRules": [
+                {"message": "*", "release": "patch"},
+                {"type": "chore", "release": "patch"},
+                {"type": "refactor", "release": "patch"}
+              ]
+            }],
             "@semantic-release/release-notes-generator",
             ["@semantic-release/exec", {
               "prepareCmd": "echo 'export NEXT_VERSION=${nextRelease.version}' >> $BASH_ENV"
