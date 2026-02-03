@@ -18,6 +18,7 @@ steps:
   - run:
       name: Run Semantic Release
       command: |
+        source $BASH_ENV
         # Explicitly request both the main tool and the exec plugin
         npx --package semantic-release --package @semantic-release/exec semantic-release
   - run:
