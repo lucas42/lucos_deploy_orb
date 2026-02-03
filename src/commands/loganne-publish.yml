@@ -1,0 +1,15 @@
+parameters:
+  tech:
+    type: string
+steps:
+  - run:
+      name: Notify Loganne
+      command: |
+        source $BASH_ENV
+        curl https://loganne.l42.eu/events --data "{
+          \"type\":\"publishedComponent\",
+          \"source\":\"lucos_deploy_orb\",
+          \"componentDeployed\":\"$CIRCLE_PROJECT_REPONAME\",
+          \"humanReadable\":\"Published version $NEXT_VERSION of $CIRCLE_PROJECT_REPONAME to << parameters.tech >>\",
+          \"version\": \"$NEXT_VERSION\"
+        }" -H "Content-Type: application/json" --fail

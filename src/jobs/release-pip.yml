@@ -5,5 +5,5 @@ steps:
   - calc-version
   - fetch-publish-creds
   - publish-pip
-  - notify-loganne:
+  - loganne-publish:
       tech: "pypi"

@@ -5,5 +5,5 @@ steps:
   - calc-version
   - fetch-publish-creds
   - publish-docker
-  - notify-loganne:
+  - loganne-publish:
       tech: "dockerhub"

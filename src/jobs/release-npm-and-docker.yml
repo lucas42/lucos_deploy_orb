@@ -5,8 +5,8 @@ steps:
   - calc-version
   - fetch-publish-creds
   - publish-npm
-  - notify-loganne:
+  - loganne-publish:
       tech: "npm"
   - publish-docker
-  - notify-loganne:
+  - loganne-publish:
       tech: "dockerhub"
