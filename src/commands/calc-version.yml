@@ -17,7 +17,9 @@ steps:
         EOF
   - run:
       name: Run Semantic Release
-      command: npx semantic-release
+      command: |
+        # Explicitly request both the main tool and the exec plugin
+        npx --package semantic-release --package @semantic-release/exec semantic-release
   - run:
       name: Halt if no release
       command: |
