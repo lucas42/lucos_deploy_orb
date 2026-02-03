@@ -1,0 +1,18 @@
+description: "Builds and publishes a Docker image"
+steps:
+  - setup_remote_docker
+  - run:
+      name: Docker Login & Build
+      command: |
+        source $BASH_ENV
+        echo "$DOCKERHUB_ACCESS_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+        PORT=1234 NEXT_VERSION=$NEXT_VERSION docker compose build
+  - run:
+      name: Docker Tag & Push
+      command: |
+        source $BASH_ENV
+        REPO="lucas42/$CIRCLE_PROJECT_REPONAME"
+        docker tag my-image:latest $REPO:$NEXT_VERSION
+        docker tag my-image:latest $REPO:latest
+        docker push $REPO:$NEXT_VERSION
+        docker push $REPO:latest

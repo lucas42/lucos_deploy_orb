@@ -1,0 +1,28 @@
+description: "Calculates version, tags the repo, and halts if no release is needed."
+steps:
+  - run:
+      name: Generate Semantic Release Config
+      command: |
+        cat \<< 'EOF' > .releaserc.json
+        {
+          "plugins": [
+            "@semantic-release/commit-analyzer",
+            "@semantic-release/release-notes-generator",
+            ["@semantic-release/exec", {
+              "prepareCmd": "echo 'export NEXT_VERSION=${nextRelease.version}' >> $BASH_ENV"
+            }],
+            "@semantic-release/github"
+          ]
+        }
+        EOF
+  - run:
+      name: Run Semantic Release
+      command: npx semantic-release
+  - run:
+      name: Halt if no release
+      command: |
+        source $BASH_ENV
+        if [ -z "$NEXT_VERSION" ]; then
+          echo "No release-worthy changes detected. Halting job."
+          circleci-agent step halt
+        fi

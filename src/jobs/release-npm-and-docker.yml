@@ -1,0 +1,12 @@
+docker:
+  - image: cimg/node:current
+steps:
+  - checkout
+  - calc-version
+  - fetch-publish-creds
+  - publish-npm
+  - notify-loganne:
+      tech: "npm"
+  - publish-docker
+  - notify-loganne:
+      tech: "dockerhub"

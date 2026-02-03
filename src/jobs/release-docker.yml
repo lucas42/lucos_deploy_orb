@@ -1,0 +1,9 @@
+docker:
+  - image: cimg/base:current
+steps:
+  - checkout
+  - calc-version
+  - fetch-publish-creds
+  - publish-docker
+  - notify-loganne:
+      tech: "dockerhub"
