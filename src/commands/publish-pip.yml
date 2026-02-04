@@ -10,5 +10,6 @@ steps:
   - run:
       name: Publish to PyPI
       command: |
+        source $BASH_ENV
         python3 -m pip install --user twine
         python3 -m twine upload --skip-existing dist/*
