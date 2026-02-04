@@ -11,5 +11,6 @@ steps:
       name: Publish to PyPI
       command: |
         source $BASH_ENV
+        export TWINE_PASSWORD=$TWINE_PASSWORD
         python3 -m pip install --user twine
-        python3 -m twine upload --skip-existing dist/*
+        python3 -m twine upload --skip-existing -u __token__ dist/*
