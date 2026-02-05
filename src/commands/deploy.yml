@@ -44,7 +44,7 @@ steps:
         ARCH=<< parameters.architecture >> \
         PRODUCTION=true \
         HOSTDOMAIN=<< parameters.host-domain >> \
-        docker compose up -d --no-buildfail
+        docker compose up -d --no-build
       max_auto_reruns: 2
       auto_rerun_delay: 15s
   - run:
