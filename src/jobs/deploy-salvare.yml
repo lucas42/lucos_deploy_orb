@@ -1,5 +1,6 @@
 docker:
   - image: cimg/base:current
+serial-group: << pipeline.project.slug >>/deploy/salvare
 steps:
   - deploy:
       host-domain: salvare-v4.s.l42.eu

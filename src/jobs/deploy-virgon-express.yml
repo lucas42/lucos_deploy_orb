@@ -1,5 +1,6 @@
 docker:
   - image: cimg/base:current
+serial-group: << pipeline.project.slug >>/deploy/virgon-express
 steps:
   - deploy:
       host-domain: virgon-express-v4.s.l42.eu
