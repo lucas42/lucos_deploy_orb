@@ -1,4 +1,4 @@
-description: "Builds and pushes all images defined in docker-compose."
+description: "Builds and pushes all images defined in docker compose."
 steps:
   - setup_remote_docker
   - run:
