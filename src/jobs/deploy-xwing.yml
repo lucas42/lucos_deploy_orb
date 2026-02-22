@@ -1,6 +1,5 @@
 docker:
   - image: cimg/base:current
-serial-group: << pipeline.project.slug >>/deploy/xwing
 steps:
   - deploy:
       host-domain: xwing-v4.s.l42.eu
