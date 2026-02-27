@@ -37,6 +37,11 @@ steps:
           docker compose pull $service
         done
   - run:
+      name: Suppress monitoring alerts during deploy
+      command: |
+        curl -X PUT https://monitoring.l42.eu/suppress/$CIRCLE_PROJECT_REPONAME \
+          --max-time 5 || true
+  - run:
       name: Deploy using docker compose
       command: |
         DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
