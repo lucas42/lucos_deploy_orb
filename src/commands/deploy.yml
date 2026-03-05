@@ -53,6 +53,11 @@ steps:
       max_auto_reruns: 2
       auto_rerun_delay: 15s
   - run:
+      name: Prune dangling Docker images
+      command: |
+        DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
+        docker image prune -f || true
+  - run:
       name: Delete envfile
       command: |
         rm -f .env
