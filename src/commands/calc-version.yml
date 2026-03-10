@@ -8,6 +8,10 @@ steps:
           "plugins": [
             ["@semantic-release/commit-analyzer", {
               "preset": "angular",
+              "parserOpts": {
+                "headerPattern": "^(.*)$",
+                "headerCorrespondence": ["subject"]
+              },
               "releaseRules": [
                 {"message": "*", "release": "patch"},
                 {"type": "chore", "release": "patch"},
