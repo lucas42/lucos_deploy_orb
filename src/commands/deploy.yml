@@ -6,6 +6,12 @@ parameters:
     default: 22
   architecture:
     type: string
+    default: ""
+    description: >
+      Architecture tag used when pulling architecture-specific images
+      (e.g. "amd64", "arm64", "armv7l"). Leave empty for services using
+      multi-platform manifests — Docker will resolve the correct platform
+      automatically.
 steps:
   - run:
       name: Set host domain
