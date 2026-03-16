@@ -1,5 +1,5 @@
 description: >
-  Builds multi-platform Docker images (linux/amd64, linux/arm64, linux/arm/v7)
+  Builds multi-platform Docker images (linux/amd64, linux/arm64)
   using docker buildx with QEMU emulation and pushes a multi-platform manifest
   to Docker Hub. Replaces the separate build-amd64 + build-armv7l + build-arm64
   jobs for services that need ARM support.
@@ -23,7 +23,7 @@ steps:
         source $BASH_ENV
         echo "$DOCKERHUB_ACCESS_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
         PORT=1234 docker buildx bake \
-          --set "*.platform=linux/amd64,linux/arm64,linux/arm/v7" \
+          --set "*.platform=linux/amd64,linux/arm64" \
           --push \
           -f docker-compose.yml
       no_output_timeout: 30m
