@@ -48,6 +48,21 @@ steps:
         curl -X PUT https://monitoring.l42.eu/suppress/$CIRCLE_PROJECT_REPONAME \
           --max-time 5 || true
   - run:
+      name: Stop host-networked services before recreating
+      command: |
+        # Services using network_mode: host bind directly to the host's network stack, so
+        # the new container races the old one for the same port. Stop the old container first
+        # to avoid the eaddrinuse crash-loop that --wait catches as a failed deploy.
+        # Bridge-networked services can coexist briefly during rolling update; skip this step.
+        if yq '.services[].network_mode' docker-compose.y*ml 2>/dev/null | grep -q '^host$'; then
+          echo "network_mode: host detected — stopping existing container(s) before up"
+          DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
+          COMPOSE_PROJECT_NAME=$CIRCLE_PROJECT_REPONAME \
+          docker compose stop
+        else
+          echo "No host-networked services detected — skipping stop step"
+        fi
+  - run:
       name: Deploy using docker compose
       command: |
         DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
