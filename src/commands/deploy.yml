@@ -84,10 +84,8 @@ steps:
         rm -f .env
   - run:
       name: Send deploy log to loganne
-      # Loganne may be temporarily unavailable (e.g. during its own redeploy). The notification
-      # is informational — a deploy that succeeds but can't notify Loganne is still a successful
-      # deploy. Retries give Loganne time to recover; || true ensures a persistent failure never
-      # fails the build.
+      # Loganne often fails to respond in time if it itself (or lucos_router) has just been
+      # deployed and hasn't yet finished starting up.  On fail, wait 30 secs and try again.
       command: |
         curl https://loganne.l42.eu/events --data '{
           "type":"deploySystem",
@@ -96,6 +94,6 @@ steps:
           "deployTarget":"<< parameters.host-domain >>",
           "sshPort":"<< parameters.ssh-port >>",
           "humanReadable":"Deployed '"$CIRCLE_PROJECT_REPONAME"' to << parameters.host-domain >>"
-        }' -H "Content-Type: application/json" || true
+        }' -H "Content-Type: application/json" --fail
       max_auto_reruns: 5
-      auto_rerun_delay: 15s
+      auto_rerun_delay: 30s
