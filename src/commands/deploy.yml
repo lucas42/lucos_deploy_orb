@@ -53,9 +53,14 @@ steps:
           docker compose pull $service
         done
   - run:
+      name: Fetch deploy infrastructure credentials
+      command: |
+        scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:lucos_deploy_orb/deploy/.env /dev/stdout >> "$BASH_ENV"
+  - run:
       name: Suppress monitoring alerts during deploy
       command: |
         curl -X PUT https://monitoring.l42.eu/suppress/$CIRCLE_PROJECT_REPONAME \
+          -H "Authorization: Bearer $KEY_LUCOS_MONITORING" \
           --max-time 5 || true
   - run:
       name: Stop host-networked services before recreating
