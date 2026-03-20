@@ -1,7 +1,6 @@
 docker:
   - image: cimg/base:current
 steps:
-  - fetch-deploy-creds
   - deploy:
       host-domain: virgon-express-v4.s.l42.eu
       ssh-port: 2203
