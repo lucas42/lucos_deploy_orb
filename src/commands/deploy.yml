@@ -56,6 +56,7 @@ steps:
       name: Suppress monitoring alerts during deploy
       command: |
         curl -X PUT https://monitoring.l42.eu/suppress/$CIRCLE_PROJECT_REPONAME \
+          -H "Authorization: Bearer $SUPPRESS_TOKEN" \
           --max-time 5 || true
   - run:
       name: Stop host-networked services before recreating

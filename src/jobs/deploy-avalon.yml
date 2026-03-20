@@ -1,6 +1,7 @@
 docker:
   - image: cimg/base:current
 steps:
+  - fetch-deploy-creds
   - deploy:
       host-domain: avalon.s.l42.eu
       architecture: amd64
