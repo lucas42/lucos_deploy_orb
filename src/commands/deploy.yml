@@ -30,6 +30,16 @@ steps:
       command: |
         scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:$CIRCLE_PROJECT_REPONAME/production/.env .
   - run:
+      name: Validate envfile contains PORT (if required)
+      command: |
+        if grep -qE '\$\{?PORT\}?' docker-compose.y*ml; then
+          PORT_VALUE=$(grep -E '^PORT=' .env | cut -d= -f2)
+          if [ -z "$PORT_VALUE" ]; then
+            echo "ERROR: PORT is referenced in docker-compose.yml but not set in .env — aborting deploy"
+            exit 1
+          fi
+        fi
+  - run:
       name: Pull container(s) onto remote box
 
       # HACK: Not specifying a service should pull all services
