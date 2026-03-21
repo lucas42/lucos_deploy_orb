@@ -12,6 +12,6 @@ steps:
           \"componentDeployed\":\"$CIRCLE_PROJECT_REPONAME\",
           \"humanReadable\":\"Published version $NEXT_VERSION of $CIRCLE_PROJECT_REPONAME to << parameters.tech >>\",
           \"version\": \"$NEXT_VERSION\"
-        }" -H "Content-Type: application/json" --fail
+        }" -H "Content-Type: application/json" --fail || true
       max_auto_reruns: 2
       auto_rerun_delay: 15s
