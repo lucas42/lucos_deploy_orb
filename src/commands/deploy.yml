@@ -25,10 +25,14 @@ steps:
       command: |
         ssh-keyscan -p << parameters.ssh-port >> -H << parameters.host-domain >> >> ~/.ssh/known_hosts && \
         ssh-keyscan -p 2202 -H creds.l42.eu >> ~/.ssh/known_hosts
+      max_auto_reruns: 5
+      auto_rerun_delay: 30s
   - run:
       name: Fetch production envfile
       command: |
         scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:$CIRCLE_PROJECT_REPONAME/production/.env .
+      max_auto_reruns: 5
+      auto_rerun_delay: 30s
   - run:
       name: Validate envfile contains PORT (if required)
       command: |
