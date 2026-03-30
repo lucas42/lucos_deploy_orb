@@ -98,7 +98,7 @@ steps:
       name: Prune unused Docker images
       command: |
         DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
-        docker image prune -af || true
+        docker image prune -f || true
   - run:
       name: Delete envfile
       command: |
