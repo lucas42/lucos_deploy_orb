@@ -3,7 +3,11 @@ steps:
       name: Populate known_hosts
       command: |
         ssh-keyscan -p 2202 -H creds.l42.eu >> ~/.ssh/known_hosts
+      max_auto_reruns: 5
+      auto_rerun_delay: 30s
   - run:
       name: Fetch deploy_orb publish envfile
       command: |
         scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:lucos_deploy_orb/publish/.env /dev/stdout >> "$BASH_ENV"
+      max_auto_reruns: 5
+      auto_rerun_delay: 30s
