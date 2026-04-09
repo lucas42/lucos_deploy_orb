@@ -75,11 +75,12 @@ steps:
         # the new container races the old one for the same port. Stop the old container first
         # to avoid the eaddrinuse crash-loop that --wait catches as a failed deploy.
         # Bridge-networked services can coexist briefly during rolling update; skip this step.
-        if yq '.services[].network_mode' docker-compose.y*ml 2>/dev/null | grep -q '^host$'; then
-          echo "network_mode: host detected — stopping existing container(s) before up"
+        HOST_SERVICES=$(yq '.services | to_entries | map(select(.value.network_mode == "host")) | .[].key' docker-compose.y*ml 2>/dev/null | tr '\n' ' ')
+        if [ -n "$HOST_SERVICES" ]; then
+          echo "network_mode: host detected — stopping existing container(s) before up: $HOST_SERVICES"
           DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
           COMPOSE_PROJECT_NAME=$CIRCLE_PROJECT_REPONAME \
-          docker compose stop
+          docker compose stop $HOST_SERVICES
         else
           echo "No host-networked services detected — skipping stop step"
         fi
