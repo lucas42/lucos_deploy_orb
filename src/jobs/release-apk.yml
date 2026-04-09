@@ -1,0 +1,10 @@
+docker:
+  - image: cimg/android:2025.01-node
+steps:
+  - checkout
+  - fetch-production-creds
+  - fetch-publish-creds
+  - calc-version
+  - publish-apk
+  - loganne-publish:
+      tech: "GitHub Release"
