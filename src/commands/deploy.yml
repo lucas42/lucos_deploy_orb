@@ -23,14 +23,25 @@ steps:
   - run:
       name: Populate known_hosts
       command: |
-        ssh-keyscan -p << parameters.ssh-port >> -H << parameters.host-domain >> >> ~/.ssh/known_hosts && \
-        ssh-keyscan -p 2202 -H creds.l42.eu >> ~/.ssh/known_hosts
+        ssh-keyscan -p << parameters.ssh-port >> -H << parameters.host-domain >> >> ~/.ssh/known_hosts
+        # Only scan creds.l42.eu if we'll actually need to connect to it.
+        # Skip if the production envfile is pre-supplied via LUCOS_DEPLOY_ENV_BASE64
+        # (e.g. for self-deploying services like lucos_creds). In that case the
+        # infrastructure credentials SCP is non-fatal, so no host key needed.
+        if [ -z "$LUCOS_DEPLOY_ENV_BASE64" ]; then
+          ssh-keyscan -p 2202 -H creds.l42.eu >> ~/.ssh/known_hosts
+        fi
       max_auto_reruns: 5
       auto_rerun_delay: 30s
   - run:
       name: Fetch production envfile
       command: |
-        scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:$CIRCLE_PROJECT_REPONAME/production/.env .
+        if [ -n "$LUCOS_DEPLOY_ENV_BASE64" ]; then
+          echo "Using pre-supplied production envfile from LUCOS_DEPLOY_ENV_BASE64"
+          printf '%s' "$LUCOS_DEPLOY_ENV_BASE64" | base64 -d > .env
+        else
+          scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:$CIRCLE_PROJECT_REPONAME/production/.env .
+        fi
       max_auto_reruns: 5
       auto_rerun_delay: 30s
   - run:
@@ -59,9 +70,16 @@ steps:
   - run:
       name: Fetch deploy infrastructure credentials
       command: |
-        scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:lucos_deploy_orb/deploy/.env /dev/stdout >> "$BASH_ENV"
-      max_auto_reruns: 5
-      auto_rerun_delay: 30s
+        # KEY_LUCOS_MONITORING is normally provided by this SCP (from lucos_deploy_orb/deploy/.env
+        # on creds.l42.eu). The pre-set check allows it to be supplied as a CircleCI project
+        # env var instead, bypassing the SCP (useful for services that cannot connect to
+        # creds.l42.eu during their own deploy).
+        if [ -n "$KEY_LUCOS_MONITORING" ]; then
+          echo "KEY_LUCOS_MONITORING already set — skipping infrastructure credential fetch from creds.l42.eu"
+        else
+          scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:lucos_deploy_orb/deploy/.env /dev/stdout >> "$BASH_ENV" || \
+            echo "WARNING: could not fetch deploy infrastructure credentials from creds.l42.eu — monitoring suppression will be skipped"
+        fi
   - run:
       name: Suppress monitoring alerts during deploy
       command: |
