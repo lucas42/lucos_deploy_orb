@@ -25,9 +25,10 @@ steps:
       command: |
         ssh-keyscan -p << parameters.ssh-port >> -H << parameters.host-domain >> >> ~/.ssh/known_hosts
         # Only scan creds.l42.eu if we'll actually need to connect to it.
-        # Skip if both the production envfile and the monitoring key are pre-supplied
-        # via environment variables (e.g. for self-deploying services like lucos_creds).
-        if [ -z "$LUCOS_DEPLOY_ENV_BASE64" ] || ! env | grep -q "^KEY_LUCOS_MONITORING="; then
+        # Skip if the production envfile is pre-supplied via LUCOS_DEPLOY_ENV_BASE64
+        # (e.g. for self-deploying services like lucos_creds). In that case the
+        # infrastructure credentials SCP is non-fatal, so no host key needed.
+        if [ -z "$LUCOS_DEPLOY_ENV_BASE64" ]; then
           ssh-keyscan -p 2202 -H creds.l42.eu >> ~/.ssh/known_hosts
         fi
       max_auto_reruns: 5
