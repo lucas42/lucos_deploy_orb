@@ -105,14 +105,37 @@ steps:
   - run:
       name: Deploy using docker compose
       command: |
-        DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
-        COMPOSE_PROJECT_NAME=$CIRCLE_PROJECT_REPONAME \
-        ARCH=<< parameters.architecture >> \
-        PRODUCTION=true \
-        HOSTDOMAIN=<< parameters.host-domain >> \
-        docker compose up -d --no-build --wait --wait-timeout 120
-      max_auto_reruns: 2
-      auto_rerun_delay: 15s
+        export DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>"
+        export COMPOSE_PROJECT_NAME=$CIRCLE_PROJECT_REPONAME
+        export ARCH=<< parameters.architecture >>
+        export PRODUCTION=true
+        export HOSTDOMAIN=<< parameters.host-domain >>
+
+        MAX_ATTEMPTS=3
+        for attempt in $(seq 1 $MAX_ATTEMPTS); do
+          echo "Deploy attempt $attempt of $MAX_ATTEMPTS"
+          if docker compose up -d --no-build --wait --wait-timeout 120; then
+            exit 0
+          fi
+
+          if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
+            # Start any containers stuck in "Created" state before retrying.
+            # When --wait-timeout expires before a dependency becomes healthy,
+            # containers using depends_on with condition: service_healthy are
+            # left in Created state. They were never started, so restart: always
+            # cannot recover them — they need an explicit start.
+            CREATED=$(docker ps -a \
+              --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME" \
+              --filter "status=created" -q)
+            if [ -n "$CREATED" ]; then
+              echo "Found containers in Created state — starting them before retry"
+              docker start $CREATED
+            fi
+            sleep 15
+          fi
+        done
+
+        exit 1
   - run:
       name: Prune unused Docker images
       command: |
