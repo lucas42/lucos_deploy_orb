@@ -4,26 +4,10 @@ description: >
   to Docker Hub. Replaces the separate build-amd64 + build-armv7l + build-arm64
   jobs for services that need ARM support.
 docker:
-  - image: cimg/base:current
+  - image: cimg/node:current
 steps:
   - checkout
-  - setup_remote_docker
   - fetch-publish-creds
-  - run:
-      name: Install QEMU emulators
-      command: |
-        docker run --privileged --rm tonistiigi/binfmt --install all
-  - run:
-      name: Create buildx builder
-      command: |
-        docker buildx create --use --name multiplatform-builder
-  - run:
-      name: Build and push multi-platform image
-      command: |
-        source $BASH_ENV
-        echo "$DOCKERHUB_ACCESS_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
-        PORT=1234 docker buildx bake \
-          --set "*.platform=linux/amd64,linux/arm64" \
-          --push \
-          -f docker-compose.yml
-      no_output_timeout: 30m
+  - calc-version
+  - publish-docker-multiplatform:
+      port: "1234"

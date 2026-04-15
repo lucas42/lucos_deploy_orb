@@ -1,4 +1,8 @@
 description: "Builds and pushes all images defined in docker compose."
+parameters:
+  port:
+    type: string
+    default: ""
 steps:
   - setup_remote_docker
   - run:
@@ -10,11 +14,13 @@ steps:
       name: Docker Build & Push (Versioned)
       command: |
         source $BASH_ENV
+        [ -n "<< parameters.port >>" ] && export PORT="<< parameters.port >>"
         VERSION=$NEXT_VERSION docker compose build
         VERSION=$NEXT_VERSION docker compose push
   - run:
       name: Docker Tag & Push (Latest)
       command: |
         source $BASH_ENV
+        [ -n "<< parameters.port >>" ] && export PORT="<< parameters.port >>"
         VERSION=latest docker compose build
         VERSION=latest docker compose push
