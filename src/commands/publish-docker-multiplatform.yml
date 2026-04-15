@@ -22,7 +22,8 @@ steps:
       name: Build & Push Multi-Platform Image (Versioned)
       command: |
         source $BASH_ENV
-        << #parameters.port >>PORT=<< parameters.port >> <</parameters.port>>VERSION=$NEXT_VERSION docker buildx bake \
+        [ -n "<< parameters.port >>" ] && export PORT="<< parameters.port >>"
+        VERSION=$NEXT_VERSION docker buildx bake \
           --set "*.platform=linux/amd64,linux/arm64" \
           --push \
           -f docker-compose.yml
@@ -31,7 +32,8 @@ steps:
       name: Build & Push Multi-Platform Image (Latest)
       command: |
         source $BASH_ENV
-        << #parameters.port >>PORT=<< parameters.port >> <</parameters.port>>VERSION=latest docker buildx bake \
+        [ -n "<< parameters.port >>" ] && export PORT="<< parameters.port >>"
+        VERSION=latest docker buildx bake \
           --set "*.platform=linux/amd64,linux/arm64" \
           --push \
           -f docker-compose.yml
