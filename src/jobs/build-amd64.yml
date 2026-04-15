@@ -1,18 +1,26 @@
 # This doesn't call out to another box because circleci runs on amd64
-# But might be worth considering spinning up an amd64 build environment for consistency?
 environment:
   ARCH: amd64
 docker:
-  - image: cimg/base:current
+  - image: cimg/node:current
 steps:
   - checkout
+  - fetch-publish-creds
+  - calc-version
   - setup_remote_docker
   - run:
-      name: Build Docker image
-      command: PORT=1234 docker compose build
-  - fetch-publish-creds
-  - run:
-      name: Publish Docker Image to Docker Hub
+      name: Docker Login
       command: |
+        source $BASH_ENV
         echo "$DOCKERHUB_ACCESS_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
-        PORT=1234 docker compose push
+  - run:
+      name: Build & Push Docker Image (Versioned)
+      command: |
+        source $BASH_ENV
+        PORT=1234 VERSION=$NEXT_VERSION docker compose build
+        PORT=1234 VERSION=$NEXT_VERSION docker compose push
+  - run:
+      name: Build & Push Docker Image (Latest)
+      command: |
+        PORT=1234 VERSION=latest docker compose build
+        PORT=1234 VERSION=latest docker compose push
