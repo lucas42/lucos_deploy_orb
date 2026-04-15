@@ -7,20 +7,5 @@ steps:
   - checkout
   - fetch-publish-creds
   - calc-version
-  - setup_remote_docker
-  - run:
-      name: Docker Login
-      command: |
-        source $BASH_ENV
-        echo "$DOCKERHUB_ACCESS_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
-  - run:
-      name: Build & Push Docker Image (Versioned)
-      command: |
-        source $BASH_ENV
-        PORT=1234 VERSION=$NEXT_VERSION docker compose build
-        PORT=1234 VERSION=$NEXT_VERSION docker compose push
-  - run:
-      name: Build & Push Docker Image (Latest)
-      command: |
-        PORT=1234 VERSION=latest docker compose build
-        PORT=1234 VERSION=latest docker compose push
+  - publish-docker:
+      port: "1234"

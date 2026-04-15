@@ -1,0 +1,38 @@
+description: "Builds and pushes multi-platform Docker images using docker buildx bake."
+parameters:
+  port:
+    type: string
+    default: ""
+steps:
+  - setup_remote_docker
+  - run:
+      name: Install QEMU emulators
+      command: |
+        docker run --privileged --rm tonistiigi/binfmt --install all
+  - run:
+      name: Create buildx builder
+      command: |
+        docker buildx create --use --name multiplatform-builder
+  - run:
+      name: Docker Login
+      command: |
+        source $BASH_ENV
+        echo "$DOCKERHUB_ACCESS_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+  - run:
+      name: Build & Push Multi-Platform Image (Versioned)
+      command: |
+        source $BASH_ENV
+        << #parameters.port >>PORT=<< parameters.port >> <</parameters.port>>VERSION=$NEXT_VERSION docker buildx bake \
+          --set "*.platform=linux/amd64,linux/arm64" \
+          --push \
+          -f docker-compose.yml
+      no_output_timeout: 30m
+  - run:
+      name: Build & Push Multi-Platform Image (Latest)
+      command: |
+        source $BASH_ENV
+        << #parameters.port >>PORT=<< parameters.port >> <</parameters.port>>VERSION=latest docker buildx bake \
+          --set "*.platform=linux/amd64,linux/arm64" \
+          --push \
+          -f docker-compose.yml
+      no_output_timeout: 30m
