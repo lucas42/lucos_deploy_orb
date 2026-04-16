@@ -10,7 +10,7 @@ steps:
 
         if [ -z "$LATEST_TAG" ]; then
           # No tags yet — first release
-          NEXT_VERSION="1.0.0"
+          VERSION="1.0.0"
           COMMIT_RANGE="HEAD"
         else
           # If HEAD is already tagged, there's nothing new to release
@@ -27,29 +27,29 @@ steps:
 
           # Check for breaking changes (local — zero API calls)
           if git log "${COMMIT_RANGE}" --format=%B | grep -qE 'BREAKING CHANGE|^[a-z]+(\([^)]*\))?!:'; then
-            NEXT_VERSION="$((PREV_MAJOR + 1)).0.0"
+            VERSION="$((PREV_MAJOR + 1)).0.0"
           else
-            NEXT_VERSION="${PREV_MAJOR}.${PREV_MINOR}.$((PREV_PATCH + 1))"
+            VERSION="${PREV_MAJOR}.${PREV_MINOR}.$((PREV_PATCH + 1))"
           fi
         fi
 
         # On non-main branches, append a pre-release suffix so Docker image tags
         # don't clash with future official releases on main.
         if [ "$CIRCLE_BRANCH" != "main" ]; then
-          NEXT_VERSION="${NEXT_VERSION}-pre.${CIRCLE_SHA1:0:7}"
-          echo "Branch build — using pre-release version: v${NEXT_VERSION}"
-          echo "export NEXT_VERSION=${NEXT_VERSION}" >> "$BASH_ENV"
+          VERSION="${VERSION}-pre.${CIRCLE_SHA1:0:7}"
+          echo "Branch build — using pre-release version: v${VERSION}"
+          echo "export VERSION=${VERSION}" >> "$BASH_ENV"
           echo "Skipping git tag push and GitHub Release creation on non-main branch."
           exit 0
         fi
 
-        echo "Next version: v${NEXT_VERSION}"
-        echo "export NEXT_VERSION=${NEXT_VERSION}" >> "$BASH_ENV"
+        echo "Next version: v${VERSION}"
+        echo "export VERSION=${VERSION}" >> "$BASH_ENV"
 
         # Push tag via HTTPS with token (git protocol, not GraphQL)
         git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git"
-        git tag "v${NEXT_VERSION}"
-        git push origin "v${NEXT_VERSION}"
+        git tag "v${VERSION}"
+        git push origin "v${VERSION}"
 
         # Create GitHub Release via one REST API call
         RELEASE_BODY=$(git log "${COMMIT_RANGE}" --format="* %s" 2>/dev/null || echo "Initial release")
@@ -58,5 +58,5 @@ steps:
           -H "Authorization: token ${GITHUB_TOKEN}" \
           -H "Content-Type: application/json" \
           "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases" \
-          -d "$(jq -n --arg tag "v${NEXT_VERSION}" --arg body "${RELEASE_BODY}" \
+          -d "$(jq -n --arg tag "v${VERSION}" --arg body "${RELEASE_BODY}" \
             '{"tag_name": $tag, "name": $tag, "body": $body}')"
