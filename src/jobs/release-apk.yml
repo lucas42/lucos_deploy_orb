@@ -4,6 +4,7 @@ steps:
   - checkout
   - fetch-production-creds
   - fetch-publish-creds
+  - generate-github-token
   - calc-version
   - publish-apk
   - loganne-publish:

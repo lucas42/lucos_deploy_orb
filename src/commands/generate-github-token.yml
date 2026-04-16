@@ -1,0 +1,69 @@
+description: >
+  Generates a short-lived GitHub App installation token scoped to the current
+  repository and exports it as GITHUB_TOKEN to $BASH_ENV.
+
+  Reads LUCOS_CI_APP_ID, LUCOS_CI_INSTALLATION_ID, and LUCOS_CI_PEM from the
+  environment (loaded by fetch-publish-creds). If these variables are absent,
+  falls back to the existing GITHUB_TOKEN (PAT) with a visible warning — this
+  supports the transition period before the GitHub App is fully configured.
+
+  Must run after fetch-publish-creds and before calc-version.
+steps:
+  - run:
+      name: Generate GitHub App installation token
+      command: |
+        set -euo pipefail
+
+        if [ -z "${LUCOS_CI_PEM:-}" ] || [ -z "${LUCOS_CI_APP_ID:-}" ] || [ -z "${LUCOS_CI_INSTALLATION_ID:-}" ]; then
+          echo "WARNING: LUCOS_CI_APP_ID, LUCOS_CI_INSTALLATION_ID, or LUCOS_CI_PEM not set." >&2
+          echo "WARNING: GITHUB_TOKEN is a PAT — migrate to GitHub App token per ADR-0001." >&2
+          echo "Falling back to existing GITHUB_TOKEN."
+          exit 0
+        fi
+
+        # Restore PEM newlines — lucos_creds flattens newlines to spaces.
+        # The header/footer contain spaces too, so parse them out, fix only the
+        # body, then reassemble.
+        HEADER_LINE="-----BEGIN RSA PRIVATE KEY-----"
+        FOOTER_LINE="-----END RSA PRIVATE KEY-----"
+        BODY=$(echo "$LUCOS_CI_PEM" | sed "s|$HEADER_LINE||;s|$FOOTER_LINE||" | tr ' ' '\n' | sed '/^$/d')
+        PEM_KEY=$(printf '%s\n%s\n%s' "$HEADER_LINE" "$BODY" "$FOOTER_LINE")
+
+        # Base64url encode (no padding, URL-safe alphabet)
+        b64url() {
+          openssl base64 -e | tr -d '=' | tr '+/' '-_' | tr -d '\n'
+        }
+
+        # Build JWT header.payload
+        NOW=$(date +%s)
+        IAT=$((NOW - 60))
+        EXP=$((NOW + 600))
+
+        TMPKEY=$(mktemp)
+        trap "rm -f $TMPKEY" EXIT
+        echo "$PEM_KEY" > "$TMPKEY"
+
+        HEADER=$(echo -n '{"alg":"RS256","typ":"JWT"}' | b64url)
+        PAYLOAD=$(echo -n "{\"iat\":${IAT},\"exp\":${EXP},\"iss\":\"${LUCOS_CI_APP_ID}\"}" | b64url)
+        SIGNATURE=$(echo -n "${HEADER}.${PAYLOAD}" | openssl dgst -sha256 -sign "$TMPKEY" | b64url)
+        JWT="${HEADER}.${PAYLOAD}.${SIGNATURE}"
+
+        # Exchange JWT for an installation token scoped to the current repo.
+        # Scoping to a single repo limits blast radius — a leaked token cannot
+        # access any other repository even if the App is installed on all repos.
+        TOKEN=$(curl -sf \
+          -X POST \
+          -H "Authorization: Bearer ${JWT}" \
+          -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          "https://api.github.com/app/installations/${LUCOS_CI_INSTALLATION_ID}/access_tokens" \
+          -d "{\"repositories\": [\"${CIRCLE_PROJECT_REPONAME}\"]}" \
+          | jq -r '.token')
+
+        if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+          echo "ERROR: GitHub App token exchange returned null or empty — check LUCOS_CI_* credentials." >&2
+          exit 1
+        fi
+
+        echo "GitHub App installation token generated (scoped to ${CIRCLE_PROJECT_REPONAME})."
+        echo "export GITHUB_TOKEN=${TOKEN}" >> "$BASH_ENV"

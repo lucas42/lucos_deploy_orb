@@ -6,6 +6,7 @@ docker:
 steps:
   - checkout
   - fetch-publish-creds
+  - generate-github-token
   - calc-version
   - publish-docker:
       port: "1234"
