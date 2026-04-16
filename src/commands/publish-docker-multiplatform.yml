@@ -25,16 +25,17 @@ steps:
         [ -n "<< parameters.port >>" ] && export PORT="<< parameters.port >>"
         VERSION=$NEXT_VERSION docker buildx bake \
           --set "*.platform=linux/amd64,linux/arm64" \
+          --set "*.args.VERSION=$NEXT_VERSION" \
           --push \
           -f docker-compose.yml
       no_output_timeout: 30m
   - run:
-      name: Build & Push Multi-Platform Image (Latest)
+      name: Tag & Push Multi-Platform Image (Latest)
       command: |
         source $BASH_ENV
         [ -n "<< parameters.port >>" ] && export PORT="<< parameters.port >>"
-        VERSION=latest docker buildx bake \
-          --set "*.platform=linux/amd64,linux/arm64" \
-          --push \
-          -f docker-compose.yml
+        VERSION=$NEXT_VERSION docker compose config --images | while read img; do
+          LATEST="${img%:*}:latest"
+          docker buildx imagetools create -t "$LATEST" "$img"
+        done
       no_output_timeout: 30m

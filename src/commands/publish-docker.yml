@@ -15,12 +15,15 @@ steps:
       command: |
         source $BASH_ENV
         [ -n "<< parameters.port >>" ] && export PORT="<< parameters.port >>"
-        VERSION=$NEXT_VERSION docker compose build
+        VERSION=$NEXT_VERSION docker compose build --build-arg VERSION=$NEXT_VERSION
         VERSION=$NEXT_VERSION docker compose push
   - run:
       name: Docker Tag & Push (Latest)
       command: |
         source $BASH_ENV
         [ -n "<< parameters.port >>" ] && export PORT="<< parameters.port >>"
-        VERSION=latest docker compose build
-        VERSION=latest docker compose push
+        VERSION=$NEXT_VERSION docker compose config --images | while read img; do
+          LATEST="${img%:*}:latest"
+          docker tag "$img" "$LATEST"
+          docker push "$LATEST"
+        done
