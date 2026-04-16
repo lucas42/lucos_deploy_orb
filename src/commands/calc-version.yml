@@ -21,6 +21,7 @@ steps:
           fi
 
           PREV_MAJOR=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f1)
+          PREV_MINOR=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f2)
           PREV_PATCH=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f3)
           COMMIT_RANGE="${LATEST_TAG}..HEAD"
 
@@ -28,7 +29,7 @@ steps:
           if git log "${COMMIT_RANGE}" --format=%B | grep -qE 'BREAKING CHANGE|^[a-z]+(\([^)]*\))?!:'; then
             NEXT_VERSION="$((PREV_MAJOR + 1)).0.0"
           else
-            NEXT_VERSION="${PREV_MAJOR}.0.$((PREV_PATCH + 1))"
+            NEXT_VERSION="${PREV_MAJOR}.${PREV_MINOR}.$((PREV_PATCH + 1))"
           fi
         fi
 
