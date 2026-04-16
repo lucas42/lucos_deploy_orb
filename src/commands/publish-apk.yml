@@ -11,7 +11,7 @@ steps:
         source $BASH_ENV
         set -a && source .env && set +a
         export ANDROID_KEYSTORE_FILE=/tmp/android-release.keystore
-        export APP_VERSION=$NEXT_VERSION
+        export APP_VERSION=$VERSION
         ./gradlew assembleRelease
   - run:
       name: Remove keystore
@@ -23,11 +23,11 @@ steps:
         source $BASH_ENV
         APK_PATH="app/build/outputs/apk/release/app-release.apk"
         RELEASE_ID=$(curl -sf -H "Authorization: token $GITHUB_TOKEN" \
-          "https://api.github.com/repos/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/releases/tags/v$NEXT_VERSION" \
+          "https://api.github.com/repos/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/releases/tags/v$VERSION" \
           | jq -r '.id')
         curl -sf -H "Authorization: token $GITHUB_TOKEN" \
           -H "Content-Type: application/vnd.android.package-archive" \
           --data-binary @"$APK_PATH" \
-          "https://uploads.github.com/repos/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/releases/$RELEASE_ID/assets?name=$CIRCLE_PROJECT_REPONAME-v$NEXT_VERSION.apk"
+          "https://uploads.github.com/repos/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/releases/$RELEASE_ID/assets?name=$CIRCLE_PROJECT_REPONAME-v$VERSION.apk"
       max_auto_reruns: 5
       auto_rerun_delay: 30s

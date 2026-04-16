@@ -10,8 +10,8 @@ steps:
           \"type\":\"publishedComponent\",
           \"source\":\"lucos_deploy_orb\",
           \"componentDeployed\":\"$CIRCLE_PROJECT_REPONAME\",
-          \"humanReadable\":\"Published version $NEXT_VERSION of $CIRCLE_PROJECT_REPONAME to << parameters.tech >>\",
-          \"version\": \"$NEXT_VERSION\"
+          \"humanReadable\":\"Published version $VERSION of $CIRCLE_PROJECT_REPONAME to << parameters.tech >>\",
+          \"version\": \"$VERSION\"
         }" -H "Content-Type: application/json" --fail
       max_auto_reruns: 5
       auto_rerun_delay: 30s

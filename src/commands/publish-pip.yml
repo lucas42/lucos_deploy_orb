@@ -4,7 +4,7 @@ steps:
       name: Build Python Package
       command: |
         source $BASH_ENV
-        sed -i "s/0.0.0-managed/$NEXT_VERSION/g" pyproject.toml
+        sed -i "s/0.0.0-managed/$VERSION/g" pyproject.toml
         python3 -m pip install --user build
         python3 -m build
   - run:

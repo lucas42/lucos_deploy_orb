@@ -10,5 +10,5 @@ steps:
       command: |
         source $BASH_ENV
         npm set //registry.npmjs.org/:_authToken=$NPM_TOKEN
-        npm version $NEXT_VERSION --no-git-tag-version
+        npm version $VERSION --no-git-tag-version
         npm publish

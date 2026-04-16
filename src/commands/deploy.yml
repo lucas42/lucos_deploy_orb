@@ -21,12 +21,13 @@ steps:
       name: Determine deployed version from git tags
       command: |
         git fetch --tags
-        DEPLOY_VERSION=$(git tag --list 'v*' --sort=-v:refname | head -1 | sed 's/^v//')
-        if [ -z "$DEPLOY_VERSION" ]; then
-          DEPLOY_VERSION="unknown"
+        VERSION=$(git tag --list 'v*' --sort=-v:refname | head -1 | sed 's/^v//')
+        if [ -z "$VERSION" ]; then
+          VERSION="unknown"
         fi
-        echo "Deploying version: $DEPLOY_VERSION"
-        echo "export DEPLOY_VERSION=$DEPLOY_VERSION" >> "$BASH_ENV"
+        echo "Deploying version: $VERSION"
+        echo "export VERSION=$VERSION" >> "$BASH_ENV"
+        echo "VERSION=$VERSION"
   - add_ssh_keys:
       fingerprints:
         - "b7:75:7e:64:66:44:40:06:95:b4:ad:cd:07:a7:6f:08"
@@ -80,6 +81,7 @@ steps:
   - run:
       name: Fetch deploy infrastructure credentials
       command: |
+        echo "VERSION=$VERSION"
         # KEY_LUCOS_MONITORING is normally provided by this SCP (from lucos_deploy_orb/deploy/.env
         # on creds.l42.eu). The pre-set check allows it to be supplied as a CircleCI project
         # env var instead, bypassing the SCP (useful for services that cannot connect to
@@ -90,6 +92,7 @@ steps:
           scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:lucos_deploy_orb/deploy/.env /dev/stdout >> "$BASH_ENV" || \
             echo "WARNING: could not fetch deploy infrastructure credentials from creds.l42.eu — monitoring suppression will be skipped"
         fi
+        echo "VERSION=$VERSION"
   - run:
       name: Suppress monitoring alerts during deploy
       command: |
@@ -160,14 +163,15 @@ steps:
       # Loganne often fails to respond in time if it itself (or lucos_router) has just been
       # deployed and hasn't yet finished starting up.  On fail, wait 30 secs and try again.
       command: |
+        echo "VERSION=$VERSION"
         curl https://loganne.l42.eu/events --data '{
           "type":"deploySystem",
           "source":"lucos_deploy_orb",
           "systemDeployed":"'"$CIRCLE_PROJECT_REPONAME"'",
           "deployTarget":"<< parameters.host-domain >>",
           "sshPort":"<< parameters.ssh-port >>",
-          "humanReadable":"Deployed '"$CIRCLE_PROJECT_REPONAME"' v'"$DEPLOY_VERSION"' to << parameters.host-domain >>",
-          "version":"'"$DEPLOY_VERSION"'"
+          "humanReadable":"Deployed '"$CIRCLE_PROJECT_REPONAME"' v'"$VERSION"' to << parameters.host-domain >>",
+          "version":"'"$VERSION"'"
         }' -H "Content-Type: application/json" --fail
       max_auto_reruns: 5
       auto_rerun_delay: 30s
