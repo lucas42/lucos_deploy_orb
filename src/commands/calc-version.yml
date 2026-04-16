@@ -32,6 +32,16 @@ steps:
           fi
         fi
 
+        # On non-main branches, append a pre-release suffix so Docker image tags
+        # don't clash with future official releases on main.
+        if [ "$CIRCLE_BRANCH" != "main" ]; then
+          NEXT_VERSION="${NEXT_VERSION}-pre.${CIRCLE_SHA1:0:7}"
+          echo "Branch build — using pre-release version: v${NEXT_VERSION}"
+          echo "export NEXT_VERSION=${NEXT_VERSION}" >> "$BASH_ENV"
+          echo "Skipping git tag push and GitHub Release creation on non-main branch."
+          exit 0
+        fi
+
         echo "Next version: v${NEXT_VERSION}"
         echo "export NEXT_VERSION=${NEXT_VERSION}" >> "$BASH_ENV"
 
