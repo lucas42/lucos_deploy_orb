@@ -35,6 +35,14 @@ steps:
         echo "Next version: v${NEXT_VERSION}"
         echo "export NEXT_VERSION=${NEXT_VERSION}" >> "$BASH_ENV"
 
+        # Only push the tag and create a GitHub Release on main.
+        # On other branches, NEXT_VERSION is still exported for use by downstream
+        # steps (e.g. Docker image tagging), but no git or API mutations are made.
+        if [ "$CIRCLE_BRANCH" != "main" ]; then
+          echo "Not on main branch (branch: ${CIRCLE_BRANCH}) — skipping git tag push and GitHub Release creation."
+          exit 0
+        fi
+
         # Push tag via HTTPS with token (git protocol, not GraphQL)
         git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git"
         git tag "v${NEXT_VERSION}"
