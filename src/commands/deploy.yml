@@ -90,13 +90,14 @@ steps:
           echo "KEY_LUCOS_MONITORING already set — skipping infrastructure credential fetch from creds.l42.eu"
         else
           TMPFILE=$(mktemp)
+          trap 'rm -f "$TMPFILE"' EXIT
           if scp -s -P 2202 -o BatchMode=yes \
                docker-deploy@creds.l42.eu:lucos_deploy_orb/deploy/.env "$TMPFILE"; then
-            grep '^KEY_LUCOS_MONITORING=' "$TMPFILE" >> "$BASH_ENV"
+            grep '^KEY_LUCOS_MONITORING=' "$TMPFILE" >> "$BASH_ENV" || \
+              echo "WARNING: KEY_LUCOS_MONITORING not found in fetched creds file — monitoring suppression will be skipped"
           else
             echo "WARNING: could not fetch deploy infrastructure credentials from creds.l42.eu — monitoring suppression will be skipped"
           fi
-          rm -f "$TMPFILE"
         fi
         echo "VERSION=$VERSION"
   - run:
