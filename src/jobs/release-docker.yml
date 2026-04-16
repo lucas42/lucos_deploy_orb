@@ -3,6 +3,7 @@ docker:
 steps:
   - checkout
   - fetch-publish-creds
+  - generate-github-token
   - calc-version
   - publish-docker
   - loganne-publish:
