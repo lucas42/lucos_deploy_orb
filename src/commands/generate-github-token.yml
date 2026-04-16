@@ -4,8 +4,8 @@ description: >
 
   Reads LUCOS_CI_APP_ID, LUCOS_CI_INSTALLATION_ID, and LUCOS_CI_PEM from the
   environment (loaded by fetch-publish-creds). If these variables are absent,
-  falls back to the existing GITHUB_TOKEN (PAT) with a visible warning — this
-  supports the transition period before the GitHub App is fully configured.
+  the step exits with an error — GITHUB_TOKEN will be unset and downstream
+  steps that require it will fail.
 
   Must run after fetch-publish-creds and before calc-version.
 steps:
@@ -15,10 +15,9 @@ steps:
         set -euo pipefail
 
         if [ -z "${LUCOS_CI_PEM:-}" ] || [ -z "${LUCOS_CI_APP_ID:-}" ] || [ -z "${LUCOS_CI_INSTALLATION_ID:-}" ]; then
-          echo "WARNING: LUCOS_CI_APP_ID, LUCOS_CI_INSTALLATION_ID, or LUCOS_CI_PEM not set." >&2
-          echo "WARNING: GITHUB_TOKEN is a PAT — migrate to GitHub App token per ADR-0001." >&2
-          echo "Falling back to existing GITHUB_TOKEN."
-          exit 0
+          echo "ERROR: LUCOS_CI_APP_ID, LUCOS_CI_INSTALLATION_ID, and LUCOS_CI_PEM must all be set." >&2
+          echo "ERROR: Store the lucos-ci GitHub App credentials in lucos_creds per ADR-0001." >&2
+          exit 1
         fi
 
         # Restore PEM newlines — lucos_creds flattens newlines to spaces.
