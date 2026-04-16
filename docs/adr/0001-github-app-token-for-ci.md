@@ -57,8 +57,10 @@ A new orb command (`generate-github-token`) runs after `fetch-publish-creds` and
 1. Reads `LUCOS_CI_APP_ID`, `LUCOS_CI_INSTALLATION_ID`, and `LUCOS_CI_PEM` from the environment (already loaded by `fetch-publish-creds`)
 2. Restores the PEM key's newlines (same technique as `lucos_agent/get-token`)
 3. Builds a JWT signed with the PEM key
-4. Exchanges the JWT for a short-lived installation token via one REST API call
+4. Exchanges the JWT for a short-lived installation token via one REST API call, **scoped to the current repository** by passing `{"repositories": ["$CIRCLE_PROJECT_REPONAME"]}` in the token request body
 5. Exports the result as `GITHUB_TOKEN` into `$BASH_ENV`
+
+**Critical: per-repo token scoping.** The app is installed on all repositories, but the installation token must be scoped to the single repo being built. Without the `repositories` parameter in the `POST /app/installations/{id}/access_tokens` request, the returned token has access to every repo the app is installed on — which would replicate the PAT's blast radius problem. The `CIRCLE_PROJECT_REPONAME` environment variable (provided by CircleCI) identifies the repo being built and must be passed in every token request.
 
 All downstream commands (`calc-version`, `publish-apk`) continue to use `$GITHUB_TOKEN` unchanged. The migration is transparent to consuming repos — they get it automatically on the next orb version bump.
 
@@ -81,7 +83,7 @@ The new app needs exactly:
 
 That's it. `Contents: write` includes the ability to create releases and upload release assets. No other permissions are required.
 
-The app should be installed on **all repositories** in the lucas42 account (matching the current PAT's scope pattern, but with per-installation token scoping providing the blast-radius reduction).
+The app should be installed on **all repositories** in the lucas42 account. The blast-radius reduction comes not from the installation scope but from **per-repo token scoping at generation time** — see the `repositories` parameter in the architecture section above.
 
 ### Rate limit improvement
 
@@ -101,7 +103,7 @@ The migration can be done with zero downtime and no changes to consuming repos:
 
 1. **lucas42 creates the GitHub App and stores credentials** (see "What lucas42 needs to do" below)
 2. **Orb change:** Add `generate-github-token` command; insert it into all jobs that call `calc-version` or `publish-apk`; update `fetch-publish-creds` docs
-3. **Transition period:** Both `GITHUB_TOKEN` (old PAT) and the new PEM variables coexist in `lucos_deploy_orb/publish/.env`. The `generate-github-token` command generates a fresh token and overwrites `GITHUB_TOKEN` in `$BASH_ENV`. If the new variables are missing, the command can be a no-op (falling back to the existing PAT)
+3. **Transition period:** Both `GITHUB_TOKEN` (old PAT) and the new PEM variables coexist in `lucos_deploy_orb/publish/.env`. The `generate-github-token` command generates a fresh token and overwrites `GITHUB_TOKEN` in `$BASH_ENV`. If the new variables are missing, the command emits a visible warning ("GITHUB_TOKEN is a PAT — migrate to GitHub App token per ADR-0001") and falls back to the existing PAT. The warning ensures the fallback is noticed rather than silently persisting
 4. **Verification:** Manually trigger a build on a test repo, confirm tagging and release creation work
 5. **Cleanup:** Remove the old `GITHUB_TOKEN` PAT from lucos_creds; revoke the PAT in GitHub
 
@@ -163,7 +165,7 @@ Notify the team that the credentials are in place. The orb implementation work (
 
 ### Positive
 
-- **Reduced blast radius:** A leaked installation token can only access the single repository it was generated for, not the entire account
+- **Reduced blast radius:** Each installation token is scoped to the single repository being built (via the `repositories` parameter at generation time), so a leaked token cannot access any other repo
 - **Independent rate limits:** Each pipeline gets its own per-installation rate budget — concurrent estate-wide builds no longer compete
 - **No personal account dependency:** The App is owned by the account but not tied to a personal PAT that can be independently revoked or expire
 - **Transparent to consumers:** Orb changes propagate automatically; no per-repo config changes needed
