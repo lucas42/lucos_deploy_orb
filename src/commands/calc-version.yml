@@ -25,7 +25,7 @@ steps:
           COMMIT_RANGE="${LATEST_TAG}..HEAD"
 
           # Check for breaking changes (local — zero API calls)
-          if git log "${COMMIT_RANGE}" --format=%B | grep -qE 'BREAKING CHANGE|^[a-z]+!:'; then
+          if git log "${COMMIT_RANGE}" --format=%B | grep -qE 'BREAKING CHANGE|^[a-z]+(\([^)]*\))?!:'; then
             NEXT_VERSION="$((PREV_MAJOR + 1)).0.0"
           else
             NEXT_VERSION="${PREV_MAJOR}.0.$((PREV_PATCH + 1))"
