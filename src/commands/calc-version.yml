@@ -1,39 +1,51 @@
-description: "Calculates version, tags the repo, and halts if no release is needed."
+description: "Calculates version, tags the repo, creates a GitHub Release, and halts if no release is needed."
 steps:
   - run:
-      name: Generate Semantic Release Config
+      name: Calculate and tag version
       command: |
-        cat \<< 'EOF' > .releaserc.json
-        {
-          "plugins": [
-            ["@semantic-release/commit-analyzer", {
-              "releaseRules": [
-                {"breaking": true, "release": "major"},
-                {"release": "patch"}
-              ]
-            }],
-            "@semantic-release/release-notes-generator",
-            ["@semantic-release/exec", {
-              "prepareCmd": "echo 'export NEXT_VERSION=${nextRelease.version}' >> $BASH_ENV"
-            }],
-            "@semantic-release/github"
-          ]
-        }
-        EOF
-  - run:
-      name: Run Semantic Release
-      command: |
-        source $BASH_ENV
-        # 1. Ensure the token is exported to child processes
-        export GITHUB_TOKEN=$GITHUB_TOKEN
+        set -euo pipefail
 
-        # 2. Run the tool
-        npx --package semantic-release --package @semantic-release/exec semantic-release
-  - run:
-      name: Halt if no release
-      command: |
-        source $BASH_ENV
-        if [ -z "$NEXT_VERSION" ]; then
-          echo "No release-worthy changes detected. Halting job."
-          circleci-agent step halt
+        # Get the latest version tag (local — zero API calls)
+        LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
+
+        if [ -z "$LATEST_TAG" ]; then
+          # No tags yet — first release
+          NEXT_VERSION="1.0.0"
+          COMMIT_RANGE="HEAD"
+        else
+          # If HEAD is already tagged, there's nothing new to release
+          if git describe --exact-match --tags HEAD 2>/dev/null | grep -q '^v'; then
+            echo "HEAD is already tagged at $LATEST_TAG. Nothing to release."
+            circleci-agent step halt
+            exit 0
+          fi
+
+          PREV_MAJOR=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f1)
+          PREV_PATCH=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f3)
+          COMMIT_RANGE="${LATEST_TAG}..HEAD"
+
+          # Check for breaking changes (local — zero API calls)
+          if git log "${COMMIT_RANGE}" --format=%B | grep -qE 'BREAKING CHANGE|^[a-z]+(\([^)]*\))?!:'; then
+            NEXT_VERSION="$((PREV_MAJOR + 1)).0.0"
+          else
+            NEXT_VERSION="${PREV_MAJOR}.0.$((PREV_PATCH + 1))"
+          fi
         fi
+
+        echo "Next version: v${NEXT_VERSION}"
+        echo "export NEXT_VERSION=${NEXT_VERSION}" >> "$BASH_ENV"
+
+        # Push tag via HTTPS with token (git protocol, not GraphQL)
+        git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git"
+        git tag "v${NEXT_VERSION}"
+        git push origin "v${NEXT_VERSION}"
+
+        # Create GitHub Release via one REST API call
+        RELEASE_BODY=$(git log "${COMMIT_RANGE}" --format="* %s" 2>/dev/null || echo "Initial release")
+        curl -sf \
+          -X POST \
+          -H "Authorization: token ${GITHUB_TOKEN}" \
+          -H "Content-Type: application/json" \
+          "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases" \
+          -d "$(jq -n --arg tag "v${NEXT_VERSION}" --arg body "${RELEASE_BODY}" \
+            '{"tag_name": $tag, "name": $tag, "body": $body}')"
