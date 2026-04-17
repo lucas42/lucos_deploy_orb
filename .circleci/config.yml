@@ -69,7 +69,6 @@ workflows:
   test-publish:
     jobs:
       - test-latest-tag-push:
-          context: orb-publishing
       - orb-tools/lint # Lint Yaml files
       - orb-tools/pack: # Pack orb source
           persist-to-workspace: true
