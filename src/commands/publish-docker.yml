@@ -8,8 +8,19 @@ steps:
   - run:
       name: Configure BuildKit registry mirror
       command: |
-        printf '[registry."docker.io"]\n  mirrors = ["docker.l42.eu"]\n' > /tmp/buildkitd.toml
-        docker buildx create --use --name builder --config /tmp/buildkitd.toml
+        echo "Probing mirror: docker.l42.eu..."
+        MIRROR_RESPONSE=$(curl -fsS --max-time 5 https://docker.l42.eu/v2/ 2>&1 || true)
+        if echo "$MIRROR_RESPONSE" | grep -q '{'; then
+          echo "Mirror is available, configuring BuildKit to use it."
+          printf '[registry."docker.io"]\n  mirrors = ["docker.l42.eu"]\n' > /tmp/buildkitd.toml
+          docker buildx create --use --name builder --config /tmp/buildkitd.toml
+          echo 'MIRROR_AVAILABLE=true' >> "$BASH_ENV"
+        else
+          echo "Mirror probe failed — falling back to direct Docker Hub pulls."
+          echo "Probe response: $MIRROR_RESPONSE"
+          docker buildx create --use --name builder
+          echo 'MIRROR_AVAILABLE=false' >> "$BASH_ENV"
+        fi
   - run:
       name: Docker Login
       command: |
@@ -19,6 +30,10 @@ steps:
       name: Docker Login (mirror)
       command: |
         source $BASH_ENV
+        if [ "$MIRROR_AVAILABLE" != "true" ]; then
+          echo "Mirror unavailable — skipping mirror login."
+          exit 0
+        fi
         echo "$DOCKER_MIRROR_ACCESS_TOKEN" | docker login --username "$DOCKER_MIRROR_USERNAME" --password-stdin docker.l42.eu
   - run:
       name: Docker Build & Push (Versioned)
