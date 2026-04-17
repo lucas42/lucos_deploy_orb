@@ -44,7 +44,10 @@ steps:
               return 1
             fi
 
-            local wait=$(( wait_base * (1 << (attempt - 1)) ))
+            local pow=1
+            local _i
+            for _i in $(seq 1 $((attempt - 1))); do pow=$((pow * 2)); done
+            local wait=$(( wait_base * pow ))
             local jitter=$(( (RANDOM % (wait / 5 + 1)) - (wait / 10) ))
             local sleep_for=$(( wait + jitter ))
             [ "$sleep_for" -lt 1 ] && sleep_for=1
@@ -86,7 +89,10 @@ steps:
               return 1
             fi
 
-            local wait=$(( wait_base * (1 << (attempt - 1)) ))
+            local pow=1
+            local _i
+            for _i in $(seq 1 $((attempt - 1))); do pow=$((pow * 2)); done
+            local wait=$(( wait_base * pow ))
             local jitter=$(( (RANDOM % (wait / 5 + 1)) - (wait / 10) ))
             local sleep_for=$(( wait + jitter ))
             [ "$sleep_for" -lt 1 ] && sleep_for=1
