@@ -68,7 +68,7 @@ jobs:
 workflows:
   test-publish:
     jobs:
-      - test-latest-tag-push:
+      - test-latest-tag-push
       - orb-tools/lint # Lint Yaml files
       - orb-tools/pack: # Pack orb source
           persist-to-workspace: true
