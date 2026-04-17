@@ -12,6 +12,91 @@ steps:
 
         git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git"
 
+        # Push a tag with exponential backoff retry for transient failures.
+        # Returns 0 on success, 1 on persistent failure, 2 on tag-already-exists
+        # (caller should recompute the version and retry the outer loop).
+        push_tag_with_retry() {
+          local tag="$1"
+          local max_attempts=5
+          local attempt=1
+          local wait_base=15
+          local push_log
+          push_log=$(mktemp)
+
+          while true; do
+            if GIT_TRACE=1 GIT_CURL_VERBOSE=1 \
+               git push origin "$tag" 2>"$push_log"; then
+              rm -f "$push_log"
+              return 0
+            fi
+
+            # Tag conflict: let outer loop handle version recompute
+            if grep -q "already exists" "$push_log"; then
+              echo "Tag $tag already exists — a concurrent pipeline pushed it first."
+              rm -f "$push_log"
+              return 2
+            fi
+
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "---- git push failed after $max_attempts attempts; dumping HTTP trace ----"
+              sed 's|x-access-token:[^@]*@|x-access-token:REDACTED@|g' "$push_log"
+              rm -f "$push_log"
+              return 1
+            fi
+
+            local wait=$(( wait_base * (1 << (attempt - 1)) ))
+            local jitter=$(( (RANDOM % (wait / 5 + 1)) - (wait / 10) ))
+            local sleep_for=$(( wait + jitter ))
+            [ "$sleep_for" -lt 1 ] && sleep_for=1
+            echo "Push failed (attempt $attempt/$max_attempts). Retrying in ${sleep_for}s..."
+            sed 's|x-access-token:[^@]*@|x-access-token:REDACTED@|g' "$push_log"
+            sleep "$sleep_for"
+            attempt=$(( attempt + 1 ))
+          done
+        }
+
+        # Create a GitHub Release with exponential backoff retry for transient failures.
+        create_release_with_retry() {
+          local tag="$1"
+          local body="$2"
+          local max_attempts=5
+          local attempt=1
+          local wait_base=15
+          local resp_file
+          resp_file=$(mktemp)
+
+          while true; do
+            http_status=$(curl -s -o "$resp_file" -w "%{http_code}" \
+              -X POST \
+              -H "Authorization: token ${GITHUB_TOKEN}" \
+              -H "Content-Type: application/json" \
+              "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases" \
+              -d "$(jq -n --arg tag "$tag" --arg body "$body" \
+                '{"tag_name": $tag, "name": $tag, "body": $body}')")
+
+            if [ "$http_status" -ge 200 ] && [ "$http_status" -lt 300 ]; then
+              rm -f "$resp_file"
+              return 0
+            fi
+
+            if [ "$attempt" -ge "$max_attempts" ]; then
+              echo "---- GitHub Release API failed after $max_attempts attempts (HTTP $http_status) ----"
+              cat "$resp_file"
+              rm -f "$resp_file"
+              return 1
+            fi
+
+            local wait=$(( wait_base * (1 << (attempt - 1)) ))
+            local jitter=$(( (RANDOM % (wait / 5 + 1)) - (wait / 10) ))
+            local sleep_for=$(( wait + jitter ))
+            [ "$sleep_for" -lt 1 ] && sleep_for=1
+            echo "Release API returned HTTP $http_status (attempt $attempt/$max_attempts). Retrying in ${sleep_for}s..."
+            cat "$resp_file"
+            sleep "$sleep_for"
+            attempt=$(( attempt + 1 ))
+          done
+        }
+
         MAX_ATTEMPTS=3
         ATTEMPT=0
 
@@ -49,20 +134,23 @@ steps:
 
           git tag "v${VERSION}"
 
-          if git push origin "v${VERSION}"; then
-            RELEASE_BODY=$(git log "${COMMIT_RANGE_NOTES}" --format="* %s" 2>/dev/null || echo "Initial release")
-            curl -sf \
-              -X POST \
-              -H "Authorization: token ${GITHUB_TOKEN}" \
-              -H "Content-Type: application/json" \
-              "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases" \
-              -d "$(jq -n --arg tag "v${VERSION}" --arg body "${RELEASE_BODY}" \
-                '{"tag_name": $tag, "name": $tag, "body": $body}')"
-            break
-          fi
+          push_tag_with_retry "v${VERSION}"
+          push_result=$?
 
-          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-            echo "Failed to push tag after ${MAX_ATTEMPTS} attempts — giving up."
+          if [ $push_result -eq 0 ]; then
+            RELEASE_BODY=$(git log "${COMMIT_RANGE_NOTES}" --format="* %s" 2>/dev/null || echo "Initial release")
+            create_release_with_retry "v${VERSION}" "$RELEASE_BODY" || exit 1
+            break
+          elif [ $push_result -eq 2 ]; then
+            # Tag conflict: delete local tag and let the outer loop recompute
+            git tag -d "v${VERSION}" 2>/dev/null || true
+            if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+              echo "Tag conflict persists after ${MAX_ATTEMPTS} outer attempts — giving up."
+              exit 1
+            fi
+            continue
+          else
+            # Persistent push failure after all inner retries
             exit 1
           fi
         done
