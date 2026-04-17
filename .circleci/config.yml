@@ -2,6 +2,7 @@ version: 2.1
 
 orbs:
   orb-tools: circleci/orb-tools@10.0
+  lucos: lucos/deploy@dev:alpha
 
 jobs:
   deploy-log:
@@ -19,58 +20,21 @@ jobs:
             }' -H "Content-Type: application/json" --fail
 
   test-latest-tag-push:
+    working_directory: /tmp/test-project
     docker:
       - image: cimg/base:current
     steps:
-      - setup_remote_docker
-      - add_ssh_keys:
-          fingerprints:
-            - "b7:75:7e:64:66:44:40:06:95:b4:ad:cd:07:a7:6f:08"
-      - run:
-          name: Populate known_hosts
-          command: |
-            ssh-keyscan -p 2202 -H creds.l42.eu >> ~/.ssh/known_hosts
-          max_auto_reruns: 5
-          auto_rerun_delay: 30s
-      - run:
-          name: Fetch publish credentials
-          command: |
-            scp -s -P 2202 -o BatchMode=yes docker-deploy@creds.l42.eu:lucos_deploy_orb/publish/.env /dev/stdout >> "$BASH_ENV"
-          max_auto_reruns: 5
-          auto_rerun_delay: 30s
-      - run:
-          name: Docker Login
-          command: |
-            source $BASH_ENV
-            echo "$DOCKERHUB_ACCESS_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
       - run:
           name: Create test project
           command: |
-            mkdir -p /tmp/test-project
             VERSION="test-$(date +%s)"
             echo "export VERSION=$VERSION" >> "$BASH_ENV"
-            printf 'FROM alpine:latest\nRUN echo "deploy-orb-test" > /test.txt\n' \
-              > /tmp/test-project/Dockerfile
+            echo "export CIRCLE_BRANCH=main" >> "$BASH_ENV"
+            printf 'FROM alpine:latest\nRUN echo "deploy-orb-test" > /test.txt\n' > Dockerfile
             printf 'services:\n  app:\n    build: .\n    image: lucas42/deploy-orb-test:v%s\n' \
-              "$VERSION" > /tmp/test-project/docker-compose.yml
-      - run:
-          name: Create buildx builder
-          command: docker buildx create --use --name test-builder
-      - run:
-          name: Build and push versioned tag
-          command: |
-            source $BASH_ENV
-            cd /tmp/test-project
-            docker buildx bake --push -f docker-compose.yml
-      - run:
-          name: Create latest tag via imagetools (code path that was broken in issue 120)
-          command: |
-            source $BASH_ENV
-            cd /tmp/test-project
-            docker compose config --format json | jq -r '.services[] | select(.build) | .image' | while read img; do
-              LATEST="${img%:*}:latest"
-              docker buildx imagetools create -t "$LATEST" "$img"
-            done
+              "$VERSION" > docker-compose.yml
+      - lucos/fetch-publish-creds
+      - lucos/publish-docker
       - run:
           name: Verify both tags exist in registry
           command: |
@@ -84,8 +48,6 @@ jobs:
 workflows:
   test-publish:
     jobs:
-      - test-latest-tag-push:
-          context: orb-publishing
       - orb-tools/lint # Lint Yaml files
       - orb-tools/pack: # Pack orb source
           persist-to-workspace: true
@@ -96,6 +58,14 @@ workflows:
           requires:
             - orb-tools/lint
             - orb-tools/pack
+          filters:
+            branches:
+              ignore:
+                - main
+      - test-latest-tag-push:
+          context: orb-publishing
+          requires:
+            - orb-tools/publish-dev
           filters:
             branches:
               ignore:
