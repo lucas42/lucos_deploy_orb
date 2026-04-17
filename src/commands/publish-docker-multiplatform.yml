@@ -12,10 +12,7 @@ steps:
   - run:
       name: Configure BuildKit registry mirror
       command: |
-        cat > /tmp/buildkitd.toml << 'EOF'
-        [registry."docker.io"]
-          mirrors = ["docker.l42.eu"]
-        EOF
+        printf '[registry."docker.io"]\n  mirrors = ["docker.l42.eu"]\n' > /tmp/buildkitd.toml
   - run:
       name: Create buildx builder
       command: |
