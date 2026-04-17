@@ -37,6 +37,5 @@ steps:
         [ -n "<< parameters.port >>" ] && export PORT="<< parameters.port >>"
         docker compose config --format json | jq -r '.services[] | select(.build) | .image' | while read img; do
           LATEST="${img%:*}:latest"
-          docker tag "$img" "$LATEST"
-          docker push "$LATEST"
+          docker buildx imagetools create -t "$LATEST" "$img"
         done
