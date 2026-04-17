@@ -27,7 +27,6 @@ steps:
         fi
         echo "Deploying version: $VERSION"
         echo "export VERSION=$VERSION" >> "$BASH_ENV"
-        echo "VERSION=$VERSION"
   - add_ssh_keys:
       fingerprints:
         - "b7:75:7e:64:66:44:40:06:95:b4:ad:cd:07:a7:6f:08"
@@ -81,7 +80,6 @@ steps:
   - run:
       name: Fetch deploy infrastructure credentials
       command: |
-        echo "VERSION=$VERSION"
         # KEY_LUCOS_MONITORING is normally provided by this SCP (from lucos_deploy_orb/deploy/.env
         # on creds.l42.eu). The pre-set check allows it to be supplied as a CircleCI project
         # env var instead, bypassing the SCP (useful for services that cannot connect to
@@ -98,7 +96,6 @@ steps:
             echo "WARNING: could not fetch deploy infrastructure credentials from creds.l42.eu — monitoring suppression will be skipped"
           fi
         fi
-        echo "VERSION=$VERSION"
   - run:
       name: Suppress monitoring alerts during deploy
       command: |
@@ -169,7 +166,6 @@ steps:
       # Loganne often fails to respond in time if it itself (or lucos_router) has just been
       # deployed and hasn't yet finished starting up.  On fail, wait 30 secs and try again.
       command: |
-        echo "VERSION=$VERSION"
         curl https://loganne.l42.eu/events --data '{
           "type":"deploySystem",
           "source":"lucos_deploy_orb",
