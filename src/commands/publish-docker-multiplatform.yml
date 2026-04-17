@@ -23,21 +23,11 @@ steps:
       command: |
         source $BASH_ENV
         [ -n "<< parameters.port >>" ] && export PORT="<< parameters.port >>"
-        STAGE_ALIASES=$(find . -maxdepth 4 -name "Dockerfile" 2>/dev/null \
-          | xargs -r awk 'toupper($1)=="FROM" { for(i=3;i<=NF;i++) if(toupper($i)=="AS") print tolower($(i+1)) }' \
-          | sort -u | tr '\n' ' ')
-        SET_ARGS=(--set "*.platform=linux/amd64,linux/arm64" --set "*.args.VERSION=$VERSION")
-        while IFS= read -r img; do
-          [ "$img" = "scratch" ] && continue
-          case "$img" in \$*) continue ;; esac
-          for alias in $STAGE_ALIASES; do
-            [ "$img" = "$alias" ] && continue 2
-          done
-          SET_ARGS+=(--set "*.contexts.${img}=docker-image://ghcr.io/lucas42/mirror/${img}")
-        done < <(find . -maxdepth 4 -name "Dockerfile" 2>/dev/null \
-          | xargs -r awk 'toupper($1)=="FROM" { img=$2; if (img ~ /^--/) img=$3; print tolower(img) }' \
-          | sort -u)
-        docker buildx bake "${SET_ARGS[@]}" --push -f docker-compose.yml
+        docker buildx bake \
+          --set "*.platform=linux/amd64,linux/arm64" \
+          --set "*.args.VERSION=$VERSION" \
+          --push \
+          -f docker-compose.yml
       no_output_timeout: 30m
   - run:
       name: Tag & Push Multi-Platform Image (Latest)
