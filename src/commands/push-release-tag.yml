@@ -10,25 +10,59 @@ steps:
           exit 0
         fi
 
-        # Determine commit range for release notes before creating the new tag
-        PREV_TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
-        if [ -z "$PREV_TAG" ]; then
-          COMMIT_RANGE="HEAD"
-        else
-          COMMIT_RANGE="${PREV_TAG}..HEAD"
-        fi
-
-        # Push tag via HTTPS with token (git protocol, not GraphQL)
         git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git"
-        git tag "v${VERSION}"
-        git push origin "v${VERSION}"
 
-        # Create GitHub Release via one REST API call
-        RELEASE_BODY=$(git log "${COMMIT_RANGE}" --format="* %s" 2>/dev/null || echo "Initial release")
-        curl -sf \
-          -X POST \
-          -H "Authorization: token ${GITHUB_TOKEN}" \
-          -H "Content-Type: application/json" \
-          "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases" \
-          -d "$(jq -n --arg tag "v${VERSION}" --arg body "${RELEASE_BODY}" \
-            '{"tag_name": $tag, "name": $tag, "body": $body}')"
+        MAX_ATTEMPTS=3
+        ATTEMPT=0
+
+        while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+          ATTEMPT=$((ATTEMPT + 1))
+
+          if [ $ATTEMPT -gt 1 ]; then
+            echo "Tag push conflict on attempt ${ATTEMPT} — fetching remote tags and recomputing version..."
+            git fetch --tags origin
+
+            LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
+            PREV_MAJOR=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f1)
+            PREV_MINOR=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f2)
+            PREV_PATCH=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f3)
+            COMMIT_RANGE="${LATEST_TAG}..HEAD"
+
+            if git log "${COMMIT_RANGE}" --format=%B | grep -qE 'BREAKING CHANGE|^[a-z]+(\([^)]*\))?!:'; then
+              NEW_VERSION="$((PREV_MAJOR + 1)).0.0"
+            else
+              NEW_VERSION="${PREV_MAJOR}.${PREV_MINOR}.$((PREV_PATCH + 1))"
+            fi
+
+            git tag -d "v${VERSION}" 2>/dev/null || true
+            VERSION="$NEW_VERSION"
+            echo "Retrying with version: v${VERSION}"
+          fi
+
+          # Determine commit range for release notes before creating the new tag
+          PREV_TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
+          if [ -z "$PREV_TAG" ]; then
+            COMMIT_RANGE_NOTES="HEAD"
+          else
+            COMMIT_RANGE_NOTES="${PREV_TAG}..HEAD"
+          fi
+
+          git tag "v${VERSION}"
+
+          if git push origin "v${VERSION}"; then
+            RELEASE_BODY=$(git log "${COMMIT_RANGE_NOTES}" --format="* %s" 2>/dev/null || echo "Initial release")
+            curl -sf \
+              -X POST \
+              -H "Authorization: token ${GITHUB_TOKEN}" \
+              -H "Content-Type: application/json" \
+              "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases" \
+              -d "$(jq -n --arg tag "v${VERSION}" --arg body "${RELEASE_BODY}" \
+                '{"tag_name": $tag, "name": $tag, "body": $body}')"
+            break
+          fi
+
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "Failed to push tag after ${MAX_ATTEMPTS} attempts — giving up."
+            exit 1
+          fi
+        done

@@ -1,4 +1,4 @@
-description: "Calculates version and exports VERSION to BASH_ENV. Halts if no release is needed. Does not push any tags — use push-release-tag after all publish steps."
+description: "Calculates version and exports VERSION to BASH_ENV. Always bumps on main-branch runs. Does not push any tags — use push-release-tag after all publish steps."
 steps:
   - run:
       name: Calculate version
@@ -12,13 +12,6 @@ steps:
           # No tags yet — first release
           VERSION="1.0.0"
         else
-          # If HEAD is already tagged, there's nothing new to release
-          if git describe --exact-match --tags HEAD 2>/dev/null | grep -q '^v'; then
-            echo "HEAD is already tagged at $LATEST_TAG. Nothing to release."
-            circleci-agent step halt
-            exit 0
-          fi
-
           PREV_MAJOR=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f1)
           PREV_MINOR=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f2)
           PREV_PATCH=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f3)
