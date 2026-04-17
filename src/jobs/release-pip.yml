@@ -6,5 +6,6 @@ steps:
   - generate-github-token
   - calc-version
   - publish-pip
+  - push-release-tag
   - loganne-publish:
       tech: "pypi"

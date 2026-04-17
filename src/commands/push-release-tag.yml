@@ -1,0 +1,34 @@
+description: "Pushes a git tag and creates a GitHub Release for the current version. No-ops on non-main branches. Must run after all publish steps so the tag only exists once a good artifact is available."
+steps:
+  - run:
+      name: Push git tag and create GitHub Release
+      command: |
+        source $BASH_ENV
+
+        if [ "$CIRCLE_BRANCH" != "main" ]; then
+          echo "Non-main branch — skipping git tag push and GitHub Release."
+          exit 0
+        fi
+
+        # Determine commit range for release notes before creating the new tag
+        PREV_TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
+        if [ -z "$PREV_TAG" ]; then
+          COMMIT_RANGE="HEAD"
+        else
+          COMMIT_RANGE="${PREV_TAG}..HEAD"
+        fi
+
+        # Push tag via HTTPS with token (git protocol, not GraphQL)
+        git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git"
+        git tag "v${VERSION}"
+        git push origin "v${VERSION}"
+
+        # Create GitHub Release via one REST API call
+        RELEASE_BODY=$(git log "${COMMIT_RANGE}" --format="* %s" 2>/dev/null || echo "Initial release")
+        curl -sf \
+          -X POST \
+          -H "Authorization: token ${GITHUB_TOKEN}" \
+          -H "Content-Type: application/json" \
+          "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases" \
+          -d "$(jq -n --arg tag "v${VERSION}" --arg body "${RELEASE_BODY}" \
+            '{"tag_name": $tag, "name": $tag, "body": $body}')"

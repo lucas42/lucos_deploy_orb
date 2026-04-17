@@ -7,5 +7,6 @@ steps:
   - generate-github-token
   - calc-version
   - publish-apk
+  - push-release-tag
   - loganne-publish:
       tech: "GitHub Release"
