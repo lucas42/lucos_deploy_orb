@@ -6,10 +6,23 @@ parameters:
 steps:
   - setup_remote_docker
   - run:
+      name: Configure BuildKit registry mirror
+      command: |
+        cat > /tmp/buildkitd.toml << 'EOF'
+        [registry."docker.io"]
+          mirrors = ["docker.l42.eu"]
+        EOF
+        docker buildx create --use --name builder --config /tmp/buildkitd.toml
+  - run:
       name: Docker Login
       command: |
         source $BASH_ENV
         echo "$DOCKERHUB_ACCESS_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+  - run:
+      name: Docker Login (mirror)
+      command: |
+        source $BASH_ENV
+        echo "$DOCKER_MIRROR_ACCESS_TOKEN" | docker login --username "$DOCKER_MIRROR_USERNAME" --password-stdin docker.l42.eu
   - run:
       name: Docker Build & Push (Versioned)
       command: |
