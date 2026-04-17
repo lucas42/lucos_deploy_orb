@@ -9,5 +9,6 @@ steps:
   - loganne-publish:
       tech: "npm"
   - publish-docker
+  - push-release-tag
   - loganne-publish:
       tech: "dockerhub"

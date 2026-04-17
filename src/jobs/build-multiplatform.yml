@@ -12,3 +12,4 @@ steps:
   - calc-version
   - publish-docker-multiplatform:
       port: "1234"
+  - push-release-tag

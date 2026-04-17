@@ -10,3 +10,4 @@ steps:
   - calc-version
   - publish-docker:
       port: "1234"
+  - push-release-tag

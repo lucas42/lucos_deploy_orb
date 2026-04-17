@@ -1,7 +1,7 @@
-description: "Calculates version, tags the repo, creates a GitHub Release, and halts if no release is needed."
+description: "Calculates version and exports VERSION to BASH_ENV. Halts if no release is needed. Does not push any tags — use push-release-tag after all publish steps."
 steps:
   - run:
-      name: Calculate and tag version
+      name: Calculate version
       command: |
         set -euo pipefail
 
@@ -11,7 +11,6 @@ steps:
         if [ -z "$LATEST_TAG" ]; then
           # No tags yet — first release
           VERSION="1.0.0"
-          COMMIT_RANGE="HEAD"
         else
           # If HEAD is already tagged, there's nothing new to release
           if git describe --exact-match --tags HEAD 2>/dev/null | grep -q '^v'; then
@@ -39,24 +38,8 @@ steps:
           VERSION="${VERSION}-pre.${CIRCLE_SHA1:0:7}"
           echo "Branch build — using pre-release version: v${VERSION}"
           echo "export VERSION=${VERSION}" >> "$BASH_ENV"
-          echo "Skipping git tag push and GitHub Release creation on non-main branch."
           exit 0
         fi
 
         echo "Next version: v${VERSION}"
         echo "export VERSION=${VERSION}" >> "$BASH_ENV"
-
-        # Push tag via HTTPS with token (git protocol, not GraphQL)
-        git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git"
-        git tag "v${VERSION}"
-        git push origin "v${VERSION}"
-
-        # Create GitHub Release via one REST API call
-        RELEASE_BODY=$(git log "${COMMIT_RANGE}" --format="* %s" 2>/dev/null || echo "Initial release")
-        curl -sf \
-          -X POST \
-          -H "Authorization: token ${GITHUB_TOKEN}" \
-          -H "Content-Type: application/json" \
-          "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases" \
-          -d "$(jq -n --arg tag "v${VERSION}" --arg body "${RELEASE_BODY}" \
-            '{"tag_name": $tag, "name": $tag, "body": $body}')"
