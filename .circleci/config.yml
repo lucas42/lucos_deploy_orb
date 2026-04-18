@@ -38,11 +38,12 @@ jobs:
       - run:
           name: Verify both tags exist in registry
           command: |
-            source $BASH_ENV
-            echo "Verifying versioned tag: lucas42/deploy-orb-test:v${VERSION}"
-            docker buildx imagetools inspect "lucas42/deploy-orb-test:v${VERSION}"
-            echo "Verifying latest tag: lucas42/deploy-orb-test:latest"
-            docker buildx imagetools inspect "lucas42/deploy-orb-test:latest"
+            VERSIONED_IMG=$(docker compose config --format json | jq -r '.services[] | select(.build) | .image' | head -1)
+            LATEST_IMG="${VERSIONED_IMG%:*}:latest"
+            echo "Verifying versioned tag: $VERSIONED_IMG"
+            docker buildx imagetools inspect "$VERSIONED_IMG"
+            echo "Verifying latest tag: $LATEST_IMG"
+            docker buildx imagetools inspect "$LATEST_IMG"
             echo "Both tags verified"
 
 workflows:
