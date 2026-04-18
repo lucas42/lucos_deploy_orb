@@ -13,12 +13,12 @@ jobs:
           name: Create test Dockerfile and docker-compose.yml
           command: |
             echo "VERSION=v${CIRCLE_PIPELINE_ID}" >> $BASH_ENV
-            cat > Dockerfile << 'EOF'
+            cat > Dockerfile \<< 'EOF'
             FROM alpine:latest
             ARG VERSION=dev
             LABEL org.opencontainers.image.version="$VERSION"
             EOF
-            cat > docker-compose.yml << 'EOF'
+            cat > docker-compose.yml \<< 'EOF'
             services:
               test-image:
                 build:
