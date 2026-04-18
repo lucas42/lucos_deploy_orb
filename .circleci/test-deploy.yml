@@ -59,7 +59,7 @@ jobs:
 workflows:
   test-deploy:
     jobs:
-      - test-publish-docker:
+      - test-publish-docker
       - orb-tools/pack:
           persist-to-workspace: true
           requires:
