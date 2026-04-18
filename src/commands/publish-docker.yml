@@ -3,8 +3,21 @@ parameters:
   port:
     type: string
     default: ""
+  platform:
+    type: string
+    default: ""
+    description: >
+      Comma-separated list of platforms to build for (e.g. "linux/amd64,linux/arm64").
+      Leave empty for single-platform (host architecture) builds.
 steps:
   - setup_remote_docker
+  - when:
+      condition: << parameters.platform >>
+      steps:
+        - run:
+            name: Install QEMU emulators
+            command: |
+              docker run --privileged --rm tonistiigi/binfmt --install all
   - run:
       name: Configure BuildKit registry mirror
       command: |
@@ -40,7 +53,16 @@ steps:
       command: |
         source $BASH_ENV
         [ -n "<< parameters.port >>" ] && export PORT="<< parameters.port >>"
-        docker buildx bake --set "*.args.VERSION=$VERSION" --push -f docker-compose.yml
+        if [ -n "<< parameters.platform >>" ]; then
+          docker buildx bake \
+            --set "*.platform=<< parameters.platform >>" \
+            --set "*.args.VERSION=$VERSION" \
+            --push \
+            -f docker-compose.yml
+        else
+          docker buildx bake --set "*.args.VERSION=$VERSION" --push -f docker-compose.yml
+        fi
+      no_output_timeout: 30m
   - run:
       name: Docker Tag & Push (Latest)
       command: |
@@ -54,3 +76,4 @@ steps:
           LATEST="${img%:*}:latest"
           docker buildx imagetools create -t "$LATEST" "$img"
         done
+      no_output_timeout: 30m

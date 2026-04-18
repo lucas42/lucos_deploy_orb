@@ -10,6 +10,7 @@ steps:
   - fetch-publish-creds
   - generate-github-token
   - calc-version
-  - publish-docker-multiplatform:
+  - publish-docker:
       port: "1234"
+      platform: "linux/amd64,linux/arm64"
   - push-release-tag
