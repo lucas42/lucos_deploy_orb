@@ -55,10 +55,9 @@ steps:
         SET_ARGS=()
         while IFS='|' read -r service img; do
           IMG_BASE="${img%:*}"
+          SET_ARGS+=(--set "${service}.tags=${IMG_BASE}:${VERSION}")
           if [ "$CIRCLE_BRANCH" = "main" ]; then
-            SET_ARGS+=(--set "${service}.tags=${IMG_BASE}:${VERSION},${IMG_BASE}:latest")
-          else
-            SET_ARGS+=(--set "${service}.tags=${IMG_BASE}:${VERSION}")
+            SET_ARGS+=(--set "${service}.tags+=${IMG_BASE}:latest")
           fi
         done < <(docker compose config --format json | jq -r '.services | to_entries[] | select(.value.build) | "\(.key)|\(.value.image)"')
         if [ -n "<< parameters.platform >>" ]; then
