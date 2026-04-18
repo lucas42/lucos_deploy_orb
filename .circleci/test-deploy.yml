@@ -25,6 +25,7 @@ jobs:
                   context: .
                 image: lucas42/deploy-orb-test:${VERSION}
             EOF
+      - deploy/fetch-publish-creds
       - deploy/publish-docker
       - run:
           name: Verify versioned tag was pushed
@@ -59,7 +60,6 @@ workflows:
   test-deploy:
     jobs:
       - test-publish-docker:
-          context: orb-publishing
       - orb-tools/pack:
           persist-to-workspace: true
           requires:
