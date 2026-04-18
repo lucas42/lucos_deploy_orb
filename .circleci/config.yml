@@ -3,7 +3,7 @@ setup: true
 
 orbs:
   orb-tools: circleci/orb-tools@10.0
-  continuation: circleci/continuation@0.2
+  continuation: circleci/continuation@1.0.0
 
 jobs:
   trigger-tests:
