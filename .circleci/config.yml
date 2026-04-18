@@ -29,12 +29,12 @@ jobs:
           command: |
             VERSION="test-$(date +%s)"
             echo "export VERSION=$VERSION" >> "$BASH_ENV"
-            echo "export CIRCLE_BRANCH=main" >> "$BASH_ENV"
             printf 'FROM alpine:latest\nRUN echo "deploy-orb-test" > /test.txt\n' > Dockerfile
             printf 'services:\n  app:\n    build: .\n    image: lucas42/deploy-orb-test:v%s\n' \
               "$VERSION" > docker-compose.yml
       - lucos/fetch-publish-creds
-      - lucos/publish-docker
+      - lucos/publish-docker:
+          force-latest: true
       - run:
           name: Verify both tags exist in registry
           command: |
