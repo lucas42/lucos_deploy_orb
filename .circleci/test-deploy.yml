@@ -12,7 +12,6 @@ jobs:
       - run:
           name: Create test Dockerfile and docker-compose.yml
           command: |
-            echo "export VERSION=v${CIRCLE_PIPELINE_ID}" >> $BASH_ENV
             cat > Dockerfile \<< 'EOF'
             FROM alpine:latest
             ARG VERSION=dev
@@ -26,6 +25,9 @@ jobs:
                 image: lucas42/deploy-orb-test:${VERSION}
             EOF
       - deploy/fetch-publish-creds
+      - run:
+          name: Set test image version
+          command: echo "export VERSION=v${CIRCLE_PIPELINE_ID}" >> $BASH_ENV
       - deploy/publish-docker
       - run:
           name: Verify versioned tag was pushed
