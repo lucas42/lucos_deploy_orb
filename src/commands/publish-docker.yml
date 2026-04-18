@@ -22,15 +22,14 @@ steps:
       name: Configure BuildKit registry mirror
       command: |
         echo "Probing mirror: docker.l42.eu..."
-        MIRROR_RESPONSE=$(curl -fsS --max-time 5 https://docker.l42.eu/v2/ 2>&1 || true)
-        if echo "$MIRROR_RESPONSE" | grep -q '{'; then
-          echo "Mirror is available, configuring BuildKit to use it."
+        MIRROR_HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 https://docker.l42.eu/v2/ 2>/dev/null || echo "000")
+        if [ "$MIRROR_HTTP_CODE" != "000" ]; then
+          echo "Mirror is reachable (HTTP $MIRROR_HTTP_CODE), configuring BuildKit to use it."
           printf '[registry."docker.io"]\n  mirrors = ["docker.l42.eu"]\n' > /tmp/buildkitd.toml
           docker buildx create --use --name builder --config /tmp/buildkitd.toml
           echo 'MIRROR_AVAILABLE=true' >> "$BASH_ENV"
         else
           echo "Mirror probe failed — falling back to direct Docker Hub pulls."
-          echo "Probe response: $MIRROR_RESPONSE"
           docker buildx create --use --name builder
           echo 'MIRROR_AVAILABLE=false' >> "$BASH_ENV"
         fi
