@@ -1,28 +1,24 @@
 version: 2.1
+setup: true
 
 orbs:
   orb-tools: circleci/orb-tools@10.0
+  continuation: circleci/continuation@1.0.0
 
 jobs:
-  deploy-log:
+  trigger-tests:
     docker:
       - image: cimg/base:current
     steps:
-      - run:
-          name: Send deploy log to loganne
-          command: |
-            curl https://loganne.l42.eu/events --data '{
-              "type":"publishedOrb",
-              "source":"lucos_deploy_orb",
-              "systemDeployed":"'"$CIRCLE_PROJECT_REPONAME"'",
-              "humanReadable":"Published circleci orb '"$CIRCLE_PROJECT_REPONAME"'"
-            }' -H "Content-Type: application/json" --fail
+      - checkout
+      - continuation/continue:
+          configuration_path: .circleci/test-deploy.yml
 
 workflows:
   test-publish:
     jobs:
-      - orb-tools/lint # Lint Yaml files
-      - orb-tools/pack: # Pack orb source
+      - orb-tools/lint
+      - orb-tools/pack:
           persist-to-workspace: true
       - orb-tools/publish-dev:
           orb-name: lucos/deploy
@@ -31,25 +27,6 @@ workflows:
           requires:
             - orb-tools/lint
             - orb-tools/pack
-          filters:
-            branches:
-              ignore:
-                - main
-      - orb-tools/increment:
-          context: orb-publishing
-          orb-ref: lucos/deploy
-          attach-workspace: true
+      - trigger-tests:
           requires:
-            - orb-tools/lint
-            - orb-tools/pack
-          filters:
-            branches:
-              only:
-                - main
-      - deploy-log:
-          requires:
-            - orb-tools/increment
-          filters:
-            branches:
-              only:
-                - main
+            - orb-tools/publish-dev

@@ -1,0 +1,89 @@
+version: 2.1
+
+orbs:
+  deploy: lucos/deploy@dev:alpha
+  orb-tools: circleci/orb-tools@10.0
+
+jobs:
+  test-publish-docker:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run:
+          name: Create test Dockerfile and docker-compose.yml
+          command: |
+            cat > Dockerfile \<< 'EOF'
+            FROM alpine:latest
+            ARG VERSION=dev
+            LABEL org.opencontainers.image.version="$VERSION"
+            EOF
+            cat > docker-compose.yml \<< 'EOF'
+            services:
+              test-image:
+                build:
+                  context: .
+                image: lucas42/deploy-orb-test:${VERSION}
+            EOF
+      - deploy/fetch-publish-creds
+      - run:
+          name: Set test image version
+          command: echo "export VERSION=v${CIRCLE_PIPELINE_ID}" >> $BASH_ENV
+      - deploy/publish-docker
+      - run:
+          name: Verify versioned tag was pushed
+          command: |
+            source $BASH_ENV
+            docker buildx imagetools inspect lucas42/deploy-orb-test:${VERSION}
+      - run:
+          name: Verify :latest tag was pushed (main branch only)
+          command: |
+            if [ "$CIRCLE_BRANCH" != "main" ]; then
+              echo "Not on main — skipping :latest verification"
+              exit 0
+            fi
+            source $BASH_ENV
+            docker buildx imagetools inspect lucas42/deploy-orb-test:latest
+
+  deploy-log:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run:
+          name: Send deploy log to loganne
+          command: |
+            curl https://loganne.l42.eu/events --data '{
+              "type":"publishedOrb",
+              "source":"lucos_deploy_orb",
+              "systemDeployed":"'"$CIRCLE_PROJECT_REPONAME"'",
+              "humanReadable":"Published circleci orb '"$CIRCLE_PROJECT_REPONAME"'"
+            }' -H "Content-Type: application/json" --fail
+
+workflows:
+  test-deploy:
+    jobs:
+      - test-publish-docker
+      - orb-tools/pack:
+          persist-to-workspace: true
+          requires:
+            - test-publish-docker
+          filters:
+            branches:
+              only:
+                - main
+      - orb-tools/increment:
+          context: orb-publishing
+          orb-ref: lucos/deploy
+          attach-workspace: true
+          requires:
+            - orb-tools/pack
+          filters:
+            branches:
+              only:
+                - main
+      - deploy-log:
+          requires:
+            - orb-tools/increment
+          filters:
+            branches:
+              only:
+                - main
