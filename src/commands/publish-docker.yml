@@ -48,31 +48,31 @@ steps:
         fi
         echo "$DOCKER_MIRROR_ACCESS_TOKEN" | docker login --username "$DOCKER_MIRROR_USERNAME" --password-stdin docker.l42.eu
   - run:
-      name: Docker Build & Push (Versioned)
+      name: Docker Build & Push
       command: |
         source $BASH_ENV
         [ -n "<< parameters.port >>" ] && export PORT="<< parameters.port >>"
+        SET_ARGS=()
+        while IFS='|' read -r service img; do
+          IMG_BASE="${img%:*}"
+          if [ "$CIRCLE_BRANCH" = "main" ]; then
+            SET_ARGS+=(--set "${service}.tags=${IMG_BASE}:${VERSION},${IMG_BASE}:latest")
+          else
+            SET_ARGS+=(--set "${service}.tags=${IMG_BASE}:${VERSION}")
+          fi
+        done < <(docker compose config --format json | jq -r '.services | to_entries[] | select(.value.build) | "\(.key)|\(.value.image)"')
         if [ -n "<< parameters.platform >>" ]; then
           docker buildx bake \
+            "${SET_ARGS[@]}" \
             --set "*.platform=<< parameters.platform >>" \
             --set "*.args.VERSION=$VERSION" \
             --push \
             -f docker-compose.yml
         else
-          docker buildx bake --set "*.args.VERSION=$VERSION" --push -f docker-compose.yml
+          docker buildx bake \
+            "${SET_ARGS[@]}" \
+            --set "*.args.VERSION=$VERSION" \
+            --push \
+            -f docker-compose.yml
         fi
-      no_output_timeout: 30m
-  - run:
-      name: Docker Tag & Push (Latest)
-      command: |
-        source $BASH_ENV
-        if [ "$CIRCLE_BRANCH" != "main" ]; then
-          echo "Skipping :latest tag push on non-main branch ($CIRCLE_BRANCH)"
-          exit 0
-        fi
-        [ -n "<< parameters.port >>" ] && export PORT="<< parameters.port >>"
-        docker compose config --format json | jq -r '.services[] | select(.build) | .image' | while read img; do
-          LATEST="${img%:*}:latest"
-          docker buildx imagetools create --builder default -t "$LATEST" "$img"
-        done
       no_output_timeout: 30m
