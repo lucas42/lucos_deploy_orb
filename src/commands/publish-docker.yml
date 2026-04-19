@@ -19,34 +19,13 @@ steps:
             command: |
               docker run --privileged --rm tonistiigi/binfmt --install all
   - run:
-      name: Configure BuildKit registry mirror
-      command: |
-        echo "Probing mirror: docker.l42.eu..."
-        MIRROR_HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 https://docker.l42.eu/v2/ 2>/dev/null || echo "000")
-        if [ "$MIRROR_HTTP_CODE" != "000" ]; then
-          echo "Mirror is reachable (HTTP $MIRROR_HTTP_CODE), configuring BuildKit to use it."
-          printf '[registry."docker.io"]\n  mirrors = ["docker.l42.eu"]\n' > /tmp/buildkitd.toml
-          docker buildx create --use --name builder --config /tmp/buildkitd.toml
-          echo 'MIRROR_AVAILABLE=true' >> "$BASH_ENV"
-        else
-          echo "Mirror probe failed — falling back to direct Docker Hub pulls."
-          docker buildx create --use --name builder
-          echo 'MIRROR_AVAILABLE=false' >> "$BASH_ENV"
-        fi
+      name: Create BuildKit builder
+      command: docker buildx create --use --name builder
   - run:
       name: Docker Login
       command: |
         source $BASH_ENV
         echo "$DOCKERHUB_ACCESS_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
-  - run:
-      name: Docker Login (mirror)
-      command: |
-        source $BASH_ENV
-        if [ "$MIRROR_AVAILABLE" != "true" ]; then
-          echo "Mirror unavailable — skipping mirror login."
-          exit 0
-        fi
-        echo "$DOCKER_MIRROR_ACCESS_TOKEN" | docker login --username "$DOCKER_MIRROR_USERNAME" --password-stdin docker.l42.eu
   - run:
       name: Docker Build & Push
       command: |
