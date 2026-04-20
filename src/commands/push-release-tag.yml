@@ -2,6 +2,8 @@ description: "Pushes a git tag and creates a GitHub Release for the current vers
 steps:
   - run:
       name: Push git tag and create GitHub Release
+      max_auto_reruns: 3
+      auto_rerun_delay: 30s
       command: |
         source $BASH_ENV
 
