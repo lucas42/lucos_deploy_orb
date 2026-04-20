@@ -2,6 +2,8 @@ description: "Pushes a git tag and creates a GitHub Release for the current vers
 steps:
   - run:
       name: Push git tag and create GitHub Release
+      max_auto_reruns: 3
+      auto_rerun_delay: 30s
       command: |
         source $BASH_ENV
 
@@ -12,151 +14,66 @@ steps:
 
         git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}.git"
 
-        # Push a tag with exponential backoff retry for transient failures.
-        # Returns 0 on success, 1 on persistent failure, 2 on tag-already-exists
-        # (caller should recompute the version and retry the outer loop).
-        push_tag_with_retry() {
-          local tag="$1"
-          local max_attempts=5
-          local attempt=1
-          local wait_base=15
-          local push_log
-          push_log=$(mktemp)
+        # Determine commit range for release notes.
+        # Exclude v${VERSION} itself in case a prior partial run pushed it (rerun safety).
+        PREV_TAG=$(git tag --list 'v*' --sort=-v:refname | grep -v "^v${VERSION}$" | head -1)
+        if [ -z "$PREV_TAG" ]; then
+          COMMIT_RANGE_NOTES="HEAD"
+        else
+          COMMIT_RANGE_NOTES="${PREV_TAG}..HEAD"
+        fi
 
-          while true; do
-            if GIT_TRACE=1 GIT_CURL_VERBOSE=1 \
-               git push origin "$tag" 2>"$push_log"; then
-              rm -f "$push_log"
-              return 0
-            fi
+        # Push git tag — idempotent: skip if already on this commit, fail loudly if on a different commit.
+        # Use ^{} dereference to get commit SHA for annotated tags; tail -1 selects it when present.
+        REMOTE_TAG_SHA=$(git ls-remote origin "refs/tags/v${VERSION}" "refs/tags/v${VERSION}^{}" 2>/dev/null | awk '{print $1}' | tail -1)
 
-            # Tag conflict: let outer loop handle version recompute
-            if grep -q "already exists" "$push_log"; then
-              echo "Tag $tag already exists — a concurrent pipeline pushed it first."
-              rm -f "$push_log"
-              return 2
-            fi
-
-            if [ "$attempt" -ge "$max_attempts" ]; then
-              echo "---- git push failed after $max_attempts attempts; dumping HTTP trace ----"
-              sed 's|x-access-token:[^@]*@|x-access-token:REDACTED@|g' "$push_log"
-              rm -f "$push_log"
-              return 1
-            fi
-
-            local pow=1
-            local _i
-            for _i in $(seq 1 $((attempt - 1))); do pow=$((pow * 2)); done
-            local wait=$(( wait_base * pow ))
-            local jitter=$(( (RANDOM % (wait / 5 + 1)) - (wait / 10) ))
-            local sleep_for=$(( wait + jitter ))
-            [ "$sleep_for" -lt 1 ] && sleep_for=1
-            echo "Push failed (attempt $attempt/$max_attempts). Retrying in ${sleep_for}s..."
-            sed 's|x-access-token:[^@]*@|x-access-token:REDACTED@|g' "$push_log"
-            sleep "$sleep_for"
-            attempt=$(( attempt + 1 ))
-          done
-        }
-
-        # Create a GitHub Release with exponential backoff retry for transient failures.
-        create_release_with_retry() {
-          local tag="$1"
-          local body="$2"
-          local max_attempts=5
-          local attempt=1
-          local wait_base=15
-          local resp_file
-          resp_file=$(mktemp)
-
-          while true; do
-            http_status=$(curl -s -o "$resp_file" -w "%{http_code}" \
-              -X POST \
-              -H "Authorization: token ${GITHUB_TOKEN}" \
-              -H "Content-Type: application/json" \
-              "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases" \
-              -d "$(jq -n --arg tag "$tag" --arg body "$body" \
-                '{"tag_name": $tag, "name": $tag, "body": $body}')")
-
-            if [ "$http_status" -ge 200 ] && [ "$http_status" -lt 300 ]; then
-              rm -f "$resp_file"
-              return 0
-            fi
-
-            if [ "$attempt" -ge "$max_attempts" ]; then
-              echo "---- GitHub Release API failed after $max_attempts attempts (HTTP $http_status) ----"
-              cat "$resp_file"
-              rm -f "$resp_file"
-              return 1
-            fi
-
-            local pow=1
-            local _i
-            for _i in $(seq 1 $((attempt - 1))); do pow=$((pow * 2)); done
-            local wait=$(( wait_base * pow ))
-            local jitter=$(( (RANDOM % (wait / 5 + 1)) - (wait / 10) ))
-            local sleep_for=$(( wait + jitter ))
-            [ "$sleep_for" -lt 1 ] && sleep_for=1
-            echo "Release API returned HTTP $http_status (attempt $attempt/$max_attempts). Retrying in ${sleep_for}s..."
-            cat "$resp_file"
-            sleep "$sleep_for"
-            attempt=$(( attempt + 1 ))
-          done
-        }
-
-        MAX_ATTEMPTS=3
-        ATTEMPT=0
-
-        while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-          ATTEMPT=$((ATTEMPT + 1))
-
-          if [ $ATTEMPT -gt 1 ]; then
-            echo "Tag push conflict on attempt ${ATTEMPT} — fetching remote tags and recomputing version..."
-            git fetch --tags origin
-
-            LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
-            PREV_MAJOR=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f1)
-            PREV_MINOR=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f2)
-            PREV_PATCH=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f3)
-            COMMIT_RANGE="${LATEST_TAG}..HEAD"
-
-            if git log "${COMMIT_RANGE}" --format=%B | grep -qE 'BREAKING CHANGE|^[a-z]+(\([^)]*\))?!:'; then
-              NEW_VERSION="$((PREV_MAJOR + 1)).0.0"
-            else
-              NEW_VERSION="${PREV_MAJOR}.${PREV_MINOR}.$((PREV_PATCH + 1))"
-            fi
-
-            git tag -d "v${VERSION}" 2>/dev/null || true
-            VERSION="$NEW_VERSION"
-            echo "Retrying with version: v${VERSION}"
-          fi
-
-          # Determine commit range for release notes before creating the new tag
-          PREV_TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
-          if [ -z "$PREV_TAG" ]; then
-            COMMIT_RANGE_NOTES="HEAD"
+        if [ -n "$REMOTE_TAG_SHA" ]; then
+          CURRENT_SHA=$(git rev-parse HEAD)
+          if [ "$REMOTE_TAG_SHA" = "$CURRENT_SHA" ]; then
+            echo "Tag v${VERSION} already exists on origin pointing to current HEAD — skipping push (likely a rerun)."
           else
-            COMMIT_RANGE_NOTES="${PREV_TAG}..HEAD"
-          fi
-
-          git tag "v${VERSION}"
-
-          push_tag_with_retry "v${VERSION}"
-          push_result=$?
-
-          if [ $push_result -eq 0 ]; then
-            RELEASE_BODY=$(git log "${COMMIT_RANGE_NOTES}" --format="* %s" 2>/dev/null || echo "Initial release")
-            create_release_with_retry "v${VERSION}" "$RELEASE_BODY" || exit 1
-            break
-          elif [ $push_result -eq 2 ]; then
-            # Tag conflict: delete local tag and let the outer loop recompute
-            git tag -d "v${VERSION}" 2>/dev/null || true
-            if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
-              echo "Tag conflict persists after ${MAX_ATTEMPTS} outer attempts — giving up."
-              exit 1
-            fi
-            continue
-          else
-            # Persistent push failure after all inner retries
+            echo ""
+            echo "FATAL: git tag v${VERSION} already exists on origin, pointing to ${REMOTE_TAG_SHA},"
+            echo "but the current build is for ${CURRENT_SHA}."
+            echo ""
+            echo "The Docker image has already been pushed to Docker Hub tagged ${VERSION}"
+            echo "for ${CURRENT_SHA}. Git and Docker Hub state have diverged."
+            echo ""
+            echo "Manual investigation required — do NOT simply rerun this job."
+            echo "Likely causes: manual out-of-band tag push; orphaned tag from a"
+            echo "previous half-failed pipeline; concurrent build race (check that"
+            echo "serial-group is configured on this repo's workflow, see #131)."
             exit 1
           fi
-        done
+        else
+          git tag -d "v${VERSION}" 2>/dev/null || true
+          git tag "v${VERSION}"
+          git push origin "v${VERSION}"
+        fi
+
+        # Create GitHub Release — idempotent: skip if already exists.
+        release_status=$(curl -s -o /dev/null -w "%{http_code}" \
+          -H "Authorization: token ${GITHUB_TOKEN}" \
+          "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases/tags/v${VERSION}")
+
+        if [ "$release_status" -eq 200 ]; then
+          echo "GitHub Release for v${VERSION} already exists — skipping creation (likely a rerun)."
+        else
+          RELEASE_BODY=$(git log "${COMMIT_RANGE_NOTES}" --format="* %s" 2>/dev/null || echo "Initial release")
+          resp_file=$(mktemp)
+          http_status=$(curl -s -o "$resp_file" -w "%{http_code}" \
+            -X POST \
+            -H "Authorization: token ${GITHUB_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}/releases" \
+            -d "$(jq -n --arg tag "v${VERSION}" --arg body "$RELEASE_BODY" \
+              '{"tag_name": $tag, "name": $tag, "body": $body}')")
+
+          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+            echo "---- GitHub Release API failed with HTTP $http_status ----"
+            cat "$resp_file"
+            rm -f "$resp_file"
+            exit 1
+          fi
+          rm -f "$resp_file"
+        fi
