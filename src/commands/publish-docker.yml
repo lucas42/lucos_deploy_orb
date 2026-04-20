@@ -40,6 +40,8 @@ steps:
         echo "$DOCKERHUB_ACCESS_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
   - run:
       name: Docker Login (mirror)
+      max_auto_reruns: 2
+      auto_rerun_delay: 5s
       command: |
         source $BASH_ENV
         if [ "$MIRROR_AVAILABLE" != "true" ]; then
