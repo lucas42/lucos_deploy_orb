@@ -6,7 +6,8 @@ steps:
   - fetch-publish-creds
   - generate-github-token
   - calc-version
-  - publish-apk
+  - build-apk
   - push-release-tag
+  - publish-apk
   - loganne-publish:
       tech: "GitHub Release"
