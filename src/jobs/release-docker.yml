@@ -5,7 +5,8 @@ steps:
   - fetch-publish-creds
   - generate-github-token
   - calc-version
-  - publish-docker
+  - publish-docker:
+      platform: "linux/amd64,linux/arm64"
   - push-release-tag
   - loganne-publish:
       tech: "dockerhub"
