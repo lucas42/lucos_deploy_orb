@@ -8,5 +8,6 @@ steps:
   - calc-version
   - publish-apk
   - push-release-tag
+  - upload-apk
   - loganne-publish:
       tech: "GitHub Release"

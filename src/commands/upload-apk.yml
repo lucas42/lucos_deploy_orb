@@ -1,0 +1,16 @@
+description: "Uploads a signed APK to an existing GitHub Release. Must run after push-release-tag so the release exists."
+steps:
+  - run:
+      name: Upload APK to GitHub Release
+      command: |
+        source $BASH_ENV
+        APK_PATH="app/build/outputs/apk/release/app-release.apk"
+        RELEASE_ID=$(curl -sf -H "Authorization: token $GITHUB_TOKEN" \
+          "https://api.github.com/repos/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/releases/tags/v$VERSION" \
+          | jq -r '.id')
+        curl -sf -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Content-Type: application/vnd.android.package-archive" \
+          --data-binary @"$APK_PATH" \
+          "https://uploads.github.com/repos/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/releases/$RELEASE_ID/assets?name=$CIRCLE_PROJECT_REPONAME-v$VERSION.apk"
+      max_auto_reruns: 5
+      auto_rerun_delay: 30s
