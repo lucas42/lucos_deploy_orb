@@ -1,0 +1,19 @@
+description: "Builds and signs a release APK. Uploading to GitHub Releases is handled by publish-apk."
+steps:
+  - run:
+      name: Decode keystore
+      command: |
+        set -a && source .env && set +a
+        echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > /tmp/android-release.keystore
+  - run:
+      name: Build and sign release APK
+      command: |
+        source $BASH_ENV
+        set -a && source .env && set +a
+        export ANDROID_KEYSTORE_FILE=/tmp/android-release.keystore
+        export APP_VERSION=$VERSION
+        ./gradlew assembleRelease
+  - run:
+      name: Remove keystore
+      command: rm -f /tmp/android-release.keystore
+      when: always
