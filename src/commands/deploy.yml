@@ -130,7 +130,7 @@ steps:
         MAX_ATTEMPTS=3
         for attempt in $(seq 1 $MAX_ATTEMPTS); do
           echo "Deploy attempt $attempt of $MAX_ATTEMPTS"
-          if docker compose up -d --no-build --wait --wait-timeout 120; then
+          if docker compose up -d --no-build --wait --wait-timeout 180; then
             exit 0
           fi
 
@@ -147,6 +147,20 @@ steps:
               echo "Found containers in Created state — starting them before retry"
               docker start $CREATED
             fi
+
+            # Restart any containers that reached "unhealthy" state.
+            # docker compose up --wait exits immediately when a container's healthcheck
+            # is in a terminal "unhealthy" state, making further retries no-ops.
+            # Restarting resets the healthcheck back into its start_period window.
+            UNHEALTHY=$(docker ps \
+              --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME" \
+              --filter "health=unhealthy" \
+              --format '{{.Names}}')
+            if [ -n "$UNHEALTHY" ]; then
+              echo "Found unhealthy containers — restarting to reset healthcheck state"
+              docker restart $UNHEALTHY
+            fi
+
             sleep 15
           fi
         done
