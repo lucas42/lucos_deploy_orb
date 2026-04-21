@@ -55,25 +55,34 @@ steps:
         source $BASH_ENV
         [ -n "<< parameters.port >>" ] && export PORT="<< parameters.port >>"
         SET_ARGS=()
+        TARGETS=()
         while IFS='|' read -r service img; do
+          TARGETS+=("$service")
           IMG_BASE="${img%:*}"
           SET_ARGS+=(--set "${service}.tags=${IMG_BASE}:${VERSION}")
           if [ "$CIRCLE_BRANCH" = "main" ]; then
             SET_ARGS+=(--set "${service}.tags+=${IMG_BASE}:latest")
           fi
         done < <(docker compose config --format json | jq -r '.services | to_entries[] | select(.value.build) | "\(.key)|\(.value.image)"')
+        if [ "${#TARGETS[@]}" -eq 0 ]; then
+          echo "ERROR: no services with a 'build:' block found in docker-compose.yml — nothing to bake." >&2
+          exit 1
+        fi
+        echo "Baking targets: ${TARGETS[*]}"
         if [ -n "<< parameters.platform >>" ]; then
           docker buildx bake \
             "${SET_ARGS[@]}" \
             --set "*.platform=<< parameters.platform >>" \
             --set "*.args.VERSION=$VERSION" \
             --push \
-            -f docker-compose.yml
+            -f docker-compose.yml \
+            "${TARGETS[@]}"
         else
           docker buildx bake \
             "${SET_ARGS[@]}" \
             --set "*.args.VERSION=$VERSION" \
             --push \
-            -f docker-compose.yml
+            -f docker-compose.yml \
+            "${TARGETS[@]}"
         fi
       no_output_timeout: 30m
