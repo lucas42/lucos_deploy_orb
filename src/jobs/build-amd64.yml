@@ -1,3 +1,6 @@
+description: >
+  DEPRECATED: Use the `build` job instead (with no platform parameter for amd64-only builds).
+  This job will be removed in a future release.
 # This doesn't call out to another box because circleci runs on amd64
 environment:
   ARCH: amd64

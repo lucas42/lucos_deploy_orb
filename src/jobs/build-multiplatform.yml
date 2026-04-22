@@ -1,8 +1,9 @@
 description: >
-  Builds multi-platform Docker images (linux/amd64, linux/arm64)
+  DEPRECATED: Use the `build` job instead with platform: "linux/amd64,linux/arm64".
+  This job will be removed in a future release.
+  Previously: Builds multi-platform Docker images (linux/amd64, linux/arm64)
   using docker buildx with QEMU emulation and pushes a multi-platform manifest
-  to Docker Hub. Replaces the separate build-amd64 + build-armv7l + build-arm64
-  jobs for services that need ARM support.
+  to Docker Hub.
 docker:
   - image: cimg/node:current
 steps:

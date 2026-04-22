@@ -1,0 +1,22 @@
+description: >
+  Builds and pushes Docker images. By default builds for linux/amd64 only.
+  Pass platform: "linux/amd64,linux/arm64" for multi-platform (amd64 + arm64) builds.
+  Replaces the deprecated build-amd64 and build-multiplatform jobs.
+parameters:
+  platform:
+    type: string
+    default: ""
+    description: >
+      Comma-separated list of platforms to build for (e.g. "linux/amd64,linux/arm64").
+      Leave empty for single-platform amd64-only builds.
+docker:
+  - image: cimg/node:current
+steps:
+  - checkout
+  - fetch-publish-creds
+  - generate-github-token
+  - calc-version
+  - publish-docker:
+      port: "1234"
+      platform: << parameters.platform >>
+  - push-release-tag
