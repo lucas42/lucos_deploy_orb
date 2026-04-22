@@ -103,20 +103,22 @@ steps:
           -H "Authorization: Bearer $KEY_LUCOS_MONITORING" \
           --max-time 5 || true
   - run:
-      name: Stop host-networked services before recreating
+      name: Stop host-networked or port-mapped services before recreating
       command: |
-        # Services using network_mode: host bind directly to the host's network stack, so
-        # the new container races the old one for the same port. Stop the old container first
-        # to avoid the eaddrinuse crash-loop that --wait catches as a failed deploy.
-        # Bridge-networked services can coexist briefly during rolling update; skip this step.
-        HOST_SERVICES=$(yq '.services | to_entries | map(select(.value.network_mode == "host")) | .[].key' docker-compose.y*ml 2>/dev/null | tr '\n' ' ')
-        if [ -n "$HOST_SERVICES" ]; then
-          echo "network_mode: host detected — stopping existing container(s) before up: $HOST_SERVICES"
+        # Services using network_mode: host, or with explicit port mappings, bind directly to
+        # host ports that can only be held by one container at a time. Stop the old container
+        # first to ensure the port is released before the new container is started.
+        # Bridge-networked services without port mappings can coexist briefly; skip those.
+        HOST_NETWORKED=$(yq '.services | to_entries | map(select(.value.network_mode == "host")) | .[].key' docker-compose.y*ml 2>/dev/null)
+        PORT_MAPPED=$(yq '.services | to_entries | map(select(.value.ports != null)) | .[].key' docker-compose.y*ml 2>/dev/null)
+        EXCLUSIVE_SERVICES=$(echo -e "$HOST_NETWORKED\n$PORT_MAPPED" | grep -v '^$' | sort -u | tr '\n' ' ')
+        if [ -n "$EXCLUSIVE_SERVICES" ]; then
+          echo "Host-port-exclusive services detected — stopping existing container(s) before up: $EXCLUSIVE_SERVICES"
           DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
           COMPOSE_PROJECT_NAME=$CIRCLE_PROJECT_REPONAME \
-          docker compose stop $HOST_SERVICES
+          docker compose stop $EXCLUSIVE_SERVICES
         else
-          echo "No host-networked services detected — skipping stop step"
+          echo "No host-port-exclusive services detected — skipping stop step"
         fi
   - run:
       name: Deploy using docker compose
