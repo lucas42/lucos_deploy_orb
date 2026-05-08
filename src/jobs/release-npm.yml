@@ -5,6 +5,7 @@ steps:
   - fetch-publish-creds
   - generate-github-token
   - calc-version
+  - check-npm-release-needed
   - publish-npm
   - push-release-tag
   - loganne-publish:
