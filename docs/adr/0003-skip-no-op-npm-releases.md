@@ -7,7 +7,7 @@
 
 ## Context
 
-The orb's `release-npm` and `release-npm-and-docker` jobs publish to npm — and tag the commit, push to Docker Hub (in the combined job), and emit a Loganne `deploySystem` event — on every merge to `main`. Three lucos library repos use this path:
+The orb's `release-npm` and `release-npm-and-docker` jobs publish to npm — and tag the commit, push to Docker Hub (in the combined job), and emit a Loganne `publishedComponent` event — on every merge to `main`. Three lucos library repos use this path:
 
 - `lucos_navbar`
 - `lucos_time_component`
