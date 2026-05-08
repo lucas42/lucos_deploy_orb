@@ -1,0 +1,62 @@
+description: >
+  Checks whether any behaviour-affecting files have changed since the last npm release tag.
+  If only allow-listed files (package-lock.json, CI config, tests, docs, dotfiles) have
+  changed, the job is halted cleanly — no publish, no tag, no Loganne event.
+
+  Must run after calc-version (needs git tag history) and before publish-npm.
+
+  NOTE (bundled-output edge case): This allow-list intentionally skips publishing when only
+  dev-tooling files change. The theoretical edge case where a transitive devDep update
+  subtly changes bundled output (e.g. a terser-webpack-plugin minor altering minification)
+  is accepted as a known trade-off — such differences are formatting-level, not behavioural.
+  See lucos_deploy_orb#166 for the full discussion. If this edge case causes a real problem
+  in practice, consider switching to Option B (artifact-byte comparison).
+steps:
+  - run:
+      name: Check if any behaviour-affecting files have changed since last release
+      command: |
+        set -euo pipefail
+
+        if [ "$CIRCLE_BRANCH" != "main" ]; then
+          echo "Non-main branch — skipping behaviour-change check (pre-release build)."
+          exit 0
+        fi
+
+        LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
+
+        if [ -z "$LATEST_TAG" ]; then
+          echo "No previous release tag found — first release, proceeding with publish."
+          exit 0
+        fi
+
+        echo "Checking files changed since $LATEST_TAG..."
+        CHANGED_FILES=$(git diff --name-only "${LATEST_TAG}..HEAD")
+
+        if [ -z "$CHANGED_FILES" ]; then
+          echo "No files changed since $LATEST_TAG — nothing to release."
+          circleci step halt
+        fi
+
+        # Filter out files that are irrelevant to the published npm artifact:
+        #   - package-lock.json: transitive dependency lock file (devDeps only for these repos)
+        #   - README.md, CHANGELOG.md: documentation
+        #   - Dotfiles and dot-directories: .gitignore, .editorconfig, .circleci/, .github/, etc.
+        #   - test/ and tests/: test-only code, not part of the published artifact
+        AFFECTING_CHANGES=$(echo "$CHANGED_FILES" \
+          | grep -vE '^package-lock\.json$' \
+          | grep -vE '^(README|CHANGELOG)\.md$' \
+          | grep -vE '^\.' \
+          | grep -vE '^tests?/') || true
+
+        if [ -z "$AFFECTING_CHANGES" ]; then
+          echo "All changes since $LATEST_TAG are in the no-release allow-list:"
+          echo "$CHANGED_FILES" | sed 's/^/  /'
+          echo ""
+          echo "No behaviour-affecting changes detected — skipping npm publish, git tag, and Loganne event."
+          circleci step halt
+        fi
+
+        echo "Behaviour-affecting changes since $LATEST_TAG:"
+        echo "$AFFECTING_CHANGES" | sed 's/^/  /'
+        echo ""
+        echo "Proceeding with publish."
