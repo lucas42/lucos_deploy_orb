@@ -1,7 +1,7 @@
 description: >
-  Runs docker image prune -a -f on avalon to reclaim disk space used by
-  old tagged images that accumulate over time (e.g. after Dependabot merge
-  storms).
+  Runs docker image prune -a -f on a remote Docker host to reclaim disk space
+  used by old tagged images that accumulate over time (e.g. after Dependabot
+  merge storms).
 
   IMPORTANT: This job MUST only be triggered by a scheduled pipeline during
   an off-peak window (e.g. 03:00 UTC). Never use this in a regular deploy
@@ -15,8 +15,7 @@ docker:
 parameters:
   host-domain:
     type: string
-    default: avalon.s.l42.eu
-    description: The production host to prune images on.
+    description: The domain name of the remote Docker host to prune images on.
   ssh-port:
     type: integer
     default: 22
