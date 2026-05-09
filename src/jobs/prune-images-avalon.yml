@@ -1,0 +1,50 @@
+description: >
+  Runs docker image prune -a -f on avalon to reclaim disk space used by
+  old tagged images that accumulate over time (e.g. after Dependabot merge
+  storms).
+
+  IMPORTANT: This job MUST only be triggered by a scheduled pipeline during
+  an off-peak window (e.g. 03:00 UTC). Never use this in a regular deploy
+  workflow — docker image prune -a removes ALL images not referenced by a
+  running container, which can delete freshly-pulled images before a
+  concurrent deploy starts its container, causing service outages.
+  (Root cause of the 2026-03-26/27 incidents; see lucos_deploy_orb#54.)
+
+docker:
+  - image: cimg/base:current
+parameters:
+  host-domain:
+    type: string
+    default: avalon.s.l42.eu
+    description: The production host to prune images on.
+  ssh-port:
+    type: integer
+    default: 22
+  ssh-user:
+    type: string
+    default: docker-deploy
+    description: >
+      The SSH user to connect as. Must be a member of the docker group on
+      the host. Defaults to docker-deploy (the standard CI deploy user).
+  ssh-key-fingerprint:
+    type: string
+    default: "b7:75:7e:64:66:44:40:06:95:b4:ad:cd:07:a7:6f:08"
+    description: >
+      MD5 fingerprint of the SSH private key to use (from CircleCI project
+      SSH key settings). Defaults to the standard avalon docker-deploy key
+      fingerprint — override if your CircleCI project uses a different key.
+steps:
+  - add_ssh_keys:
+      fingerprints:
+        - "<< parameters.ssh-key-fingerprint >>"
+  - run:
+      name: Populate known_hosts
+      command: |
+        ssh-keyscan -p << parameters.ssh-port >> -H << parameters.host-domain >> >> ~/.ssh/known_hosts
+      max_auto_reruns: 5
+      auto_rerun_delay: 30s
+  - run:
+      name: Prune all unused Docker images on << parameters.host-domain >>
+      command: |
+        DOCKER_HOST="ssh://<< parameters.ssh-user >>@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
+        docker image prune -a -f
