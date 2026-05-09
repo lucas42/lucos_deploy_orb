@@ -9,8 +9,30 @@ parameters:
     description: >
       Comma-separated list of platforms to build for (e.g. "linux/amd64,linux/arm64").
       Leave empty for single-platform (host architecture) builds.
+  mirror_url:
+    type: string
+    default: "docker.l42.eu"
+    description: >
+      Host (and optional port) of the Docker registry mirror used as a pull-through cache.
+      Override in tests to point at a local registry:2 instance (e.g. "localhost:5001").
+  mirror_insecure:
+    type: boolean
+    default: false
+    description: >
+      Set to true to probe and log in to the mirror over HTTP instead of HTTPS, and to
+      configure BuildKit to allow insecure connections to the mirror.
+      Required when mirror_url points at an HTTP-only registry (e.g. a local test instance).
+  remote_docker:
+    type: boolean
+    default: true
+    description: >
+      Set to false when running on a machine executor where Docker is already available.
+      When true (default), setup_remote_docker is called to provision a remote Docker daemon.
 steps:
-  - setup_remote_docker
+  - when:
+      condition: << parameters.remote_docker >>
+      steps:
+        - setup_remote_docker
   - when:
       condition: << parameters.platform >>
       steps:
@@ -21,11 +43,18 @@ steps:
   - run:
       name: Configure BuildKit registry mirror
       command: |
-        echo "Probing mirror: docker.l42.eu..."
-        MIRROR_HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 https://docker.l42.eu/v2/ 2>/dev/null || echo "000")
+        MIRROR_SCHEME=https
+        if [ "<< parameters.mirror_insecure >>" = "true" ]; then
+          MIRROR_SCHEME=http
+        fi
+        echo "Probing mirror: << parameters.mirror_url >>..."
+        MIRROR_HTTP_CODE=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 ${MIRROR_SCHEME}://<< parameters.mirror_url >>/v2/ 2>/dev/null || echo "000")
         if [ "$MIRROR_HTTP_CODE" != "000" ]; then
           echo "Mirror is reachable (HTTP $MIRROR_HTTP_CODE), configuring BuildKit to use it."
-          printf '[registry."docker.io"]\n  mirrors = ["docker.l42.eu"]\n' > /tmp/buildkitd.toml
+          printf '[registry."docker.io"]\n  mirrors = ["<< parameters.mirror_url >>"]\n' > /tmp/buildkitd.toml
+          if [ "<< parameters.mirror_insecure >>" = "true" ]; then
+            printf '[registry."<< parameters.mirror_url >>"]\n  http = true\n  insecure = true\n' >> /tmp/buildkitd.toml
+          fi
           docker buildx create --use --name builder --config /tmp/buildkitd.toml
           echo 'MIRROR_AVAILABLE=true' >> "$BASH_ENV"
         else
@@ -48,7 +77,7 @@ steps:
           echo "Mirror unavailable — skipping mirror login."
           exit 0
         fi
-        echo "$DOCKER_MIRROR_ACCESS_TOKEN" | docker login --username "$DOCKER_MIRROR_USERNAME" --password-stdin docker.l42.eu
+        echo "$DOCKER_MIRROR_ACCESS_TOKEN" | docker login --username "$DOCKER_MIRROR_USERNAME" --password-stdin << parameters.mirror_url >>
   - run:
       name: Docker Build & Push
       command: |

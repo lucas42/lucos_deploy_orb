@@ -44,6 +44,90 @@ jobs:
             source $BASH_ENV
             docker buildx imagetools inspect lucas42/deploy-orb-test:latest
 
+  test-publish-docker-with-mirror:
+    machine:
+      image: ubuntu-2204:current
+    steps:
+      - run:
+          name: Start mirror registry with authentication (simulates docker.l42.eu 401 response)
+          command: |
+            mkdir -p /tmp/mirror-auth
+            docker run --rm --entrypoint htpasswd httpd:2 -Bbn testmirror testpassword > /tmp/mirror-auth/htpasswd
+            docker run -d \
+              --name mirror-registry \
+              -v /tmp/mirror-auth:/auth \
+              -e REGISTRY_AUTH=htpasswd \
+              -e "REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm" \
+              -e REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd \
+              -p 5001:5000 \
+              registry:2
+      - run:
+          name: Wait for mirror registry to return 401
+          command: |
+            for i in {1..30}; do
+              HTTP_CODE=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:5001/v2/ || echo "000")
+              if [ "$HTTP_CODE" = "401" ]; then
+                echo "Mirror registry is up and returning 401 (as expected for an authenticated registry)"
+                break
+              fi
+              sleep 1
+            done
+            if [ "$HTTP_CODE" != "401" ]; then
+              echo "Mirror registry did not start properly (got '$HTTP_CODE', expected '401')"
+              exit 1
+            fi
+      - run:
+          name: Create test Dockerfile and docker-compose.yml
+          command: |
+            cat > Dockerfile \<< 'EOF'
+            FROM scratch
+            ARG VERSION=dev
+            LABEL org.opencontainers.image.version="$VERSION"
+            EOF
+            cat > docker-compose.yml \<< 'EOF'
+            services:
+              test-image:
+                build:
+                  context: .
+                image: lucas42/deploy-orb-test:${VERSION}
+            EOF
+      - deploy/fetch-publish-creds
+      - run:
+          name: Override mirror credentials for test registry
+          command: |
+            echo 'export DOCKER_MIRROR_USERNAME=testmirror' >> "$BASH_ENV"
+            echo 'export DOCKER_MIRROR_ACCESS_TOKEN=testpassword' >> "$BASH_ENV"
+      - run:
+          name: Set test image version
+          command: echo "export VERSION=v${CIRCLE_PIPELINE_ID}-mirror" >> $BASH_ENV
+      - deploy/publish-docker:
+          mirror_url: localhost:5001
+          mirror_insecure: true
+          remote_docker: false
+      - run:
+          name: Assert MIRROR_AVAILABLE=true (regression check for #132)
+          command: |
+            source $BASH_ENV
+            if [ "$MIRROR_AVAILABLE" != "true" ]; then
+              echo "MIRROR_AVAILABLE is '$MIRROR_AVAILABLE', expected 'true' — probe failed to recognise 401 as available"
+              exit 1
+            fi
+            echo "MIRROR_AVAILABLE=true confirmed"
+      - run:
+          name: Verify versioned tag was pushed
+          command: |
+            source $BASH_ENV
+            docker buildx imagetools inspect lucas42/deploy-orb-test:${VERSION}
+      - run:
+          name: Verify :latest tag was pushed (main branch only)
+          command: |
+            if [ "$CIRCLE_BRANCH" != "main" ]; then
+              echo "Not on main — skipping :latest verification"
+              exit 0
+            fi
+            source $BASH_ENV
+            docker buildx imagetools inspect lucas42/deploy-orb-test:latest
+
   deploy-log:
     docker:
       - image: cimg/base:current
@@ -62,10 +146,12 @@ workflows:
   test-deploy:
     jobs:
       - test-publish-docker
+      - test-publish-docker-with-mirror
       - orb-tools/pack:
           persist-to-workspace: true
           requires:
             - test-publish-docker
+            - test-publish-docker-with-mirror
           filters:
             branches:
               only:
