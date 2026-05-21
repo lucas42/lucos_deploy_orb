@@ -1,3 +1,13 @@
+parameters:
+  platform:
+    type: string
+    default: "linux/amd64,linux/arm64"
+    description: >
+      Comma-separated list of platforms to build for. Defaults to multi-platform
+      (linux/amd64,linux/arm64). Pass a single platform (e.g. "linux/amd64") to
+      skip cross-compilation — useful for images whose final stage is FROM scratch
+      with platform-independent content (e.g. data files), where QEMU emulation
+      adds significant build time with no benefit to image consumers.
 docker:
   - image: cimg/node:current
 steps:
@@ -6,7 +16,7 @@ steps:
   - generate-github-token
   - calc-version
   - publish-docker:
-      platform: "linux/amd64,linux/arm64"
+      platform: << parameters.platform >>
   - push-release-tag
   - loganne-publish:
       tech: "dockerhub"
