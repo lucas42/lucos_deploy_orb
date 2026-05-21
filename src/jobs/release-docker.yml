@@ -1,3 +1,14 @@
+parameters:
+  platform:
+    type: string
+    default: "linux/amd64,linux/arm64"
+    description: >
+      Comma-separated list of platforms to build for. Defaults to multi-platform
+      (linux/amd64,linux/arm64). Pass "" for a host-native single-platform build
+      with no platform manifest claim — appropriate when the image content is
+      platform-agnostic (e.g. data-only FROM scratch images). Pass an explicit
+      single platform (e.g. "linux/amd64") only when the image genuinely targets
+      one architecture.
 docker:
   - image: cimg/node:current
 steps:
@@ -6,7 +17,7 @@ steps:
   - generate-github-token
   - calc-version
   - publish-docker:
-      platform: "linux/amd64,linux/arm64"
+      platform: << parameters.platform >>
   - push-release-tag
   - loganne-publish:
       tech: "dockerhub"
