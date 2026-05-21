@@ -4,10 +4,11 @@ parameters:
     default: "linux/amd64,linux/arm64"
     description: >
       Comma-separated list of platforms to build for. Defaults to multi-platform
-      (linux/amd64,linux/arm64). Pass a single platform (e.g. "linux/amd64") to
-      skip cross-compilation — useful for images whose final stage is FROM scratch
-      with platform-independent content (e.g. data files), where QEMU emulation
-      adds significant build time with no benefit to image consumers.
+      (linux/amd64,linux/arm64). Pass "" for a host-native single-platform build
+      with no platform manifest claim — appropriate when the image content is
+      platform-agnostic (e.g. data-only FROM scratch images). Pass an explicit
+      single platform (e.g. "linux/amd64") only when the image genuinely targets
+      one architecture.
 docker:
   - image: cimg/node:current
 steps:
