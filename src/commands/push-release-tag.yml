@@ -16,7 +16,7 @@ steps:
 
         # Determine commit range for release notes.
         # Exclude v${VERSION} itself in case a prior partial run pushed it (rerun safety).
-        PREV_TAG=$(git tag --list 'v*' --sort=-v:refname | grep -v "^v${VERSION}$" | head -1)
+        PREV_TAG=$(git tag --list 'v*' --sort=-v:refname | { grep -v "^v${VERSION}$" || true; } | head -1)
         if [ -z "$PREV_TAG" ]; then
           COMMIT_RANGE_NOTES="HEAD"
         else
