@@ -7,7 +7,11 @@ description: >
   the step exits with an error — GITHUB_TOKEN will be unset and downstream
   steps that require it will fail.
 
-  Must run after fetch-publish-creds and before calc-version.
+  Must run after fetch-publish-creds. Call this immediately before the sequence
+  of steps that consume $GITHUB_TOKEN — do not call it early in a job and let
+  slow build steps follow, as the token has a 10-minute TTL. In practice,
+  push-release-tag embeds this command internally, so most callers do not need
+  to call generate-github-token directly.
 steps:
   - run:
       name: Generate GitHub App installation token

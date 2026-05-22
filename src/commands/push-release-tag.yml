@@ -1,5 +1,15 @@
-description: "Pushes a git tag and creates a GitHub Release for the current version. No-ops on non-main branches. Must run after all publish steps so the tag only exists once a good artifact is available."
+description: >
+  Pushes a git tag and creates a GitHub Release for the current version.
+  No-ops on non-main branches. Must run after all publish steps so the tag
+  only exists once a good artifact is available.
+
+  Generates a fresh GitHub App installation token (via generate-github-token)
+  as its first inner step, so the token is always minted immediately before the
+  API calls — callers do not need to call generate-github-token separately.
+  fetch-publish-creds must still run earlier in the job to provide LUCOS_CI_PEM
+  and related credentials.
 steps:
+  - generate-github-token
   - run:
       name: Push git tag and create GitHub Release
       max_auto_reruns: 3

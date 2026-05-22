@@ -4,7 +4,6 @@ steps:
   - checkout
   - fetch-production-creds
   - fetch-publish-creds
-  - generate-github-token
   - calc-version
   - build-apk
   - push-release-tag

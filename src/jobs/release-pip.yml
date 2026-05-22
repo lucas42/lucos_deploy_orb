@@ -3,7 +3,6 @@ docker:
 steps:
   - checkout
   - fetch-publish-creds
-  - generate-github-token
   - calc-version
   - publish-pip
   - push-release-tag
