@@ -128,6 +128,73 @@ jobs:
             source $BASH_ENV
             docker buildx imagetools inspect lucas42/deploy-orb-test:latest
 
+  test-calc-version-patch:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run:
+          name: Set up git repo with patch-only commits
+          command: |
+            git init
+            git config user.email "test@circleci.com"
+            git config user.name "CircleCI Test"
+            git commit --allow-empty -m "chore: initial commit"
+            git tag v1.2.3
+            git commit --allow-empty -m "fix: a bug fix"
+            echo "export CIRCLE_BRANCH=main" >> "$BASH_ENV"
+      - deploy/calc-version
+      - run:
+          name: Assert patch bump (1.2.4)
+          command: |
+            source "$BASH_ENV"
+            [ "$VERSION" = "1.2.4" ] || { echo "FAIL: expected 1.2.4, got $VERSION"; exit 1; }
+            echo "PASS: VERSION=$VERSION"
+
+  test-calc-version-minor:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run:
+          name: Set up git repo with feat commit
+          command: |
+            git init
+            git config user.email "test@circleci.com"
+            git config user.name "CircleCI Test"
+            git commit --allow-empty -m "chore: initial commit"
+            git tag v1.2.3
+            git commit --allow-empty -m "feat: add new feature"
+            echo "export CIRCLE_BRANCH=main" >> "$BASH_ENV"
+      - deploy/calc-version
+      - run:
+          name: Assert minor bump (1.3.0)
+          command: |
+            source "$BASH_ENV"
+            [ "$VERSION" = "1.3.0" ] || { echo "FAIL: expected 1.3.0, got $VERSION"; exit 1; }
+            echo "PASS: VERSION=$VERSION"
+
+  test-calc-version-major:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - run:
+          name: Set up git repo with breaking change (feat present too — major must win)
+          command: |
+            git init
+            git config user.email "test@circleci.com"
+            git config user.name "CircleCI Test"
+            git commit --allow-empty -m "chore: initial commit"
+            git tag v1.2.3
+            git commit --allow-empty -m "feat: add new feature"
+            git commit --allow-empty -m "feat!: breaking rename"
+            echo "export CIRCLE_BRANCH=main" >> "$BASH_ENV"
+      - deploy/calc-version
+      - run:
+          name: Assert major bump (2.0.0) beats minor
+          command: |
+            source "$BASH_ENV"
+            [ "$VERSION" = "2.0.0" ] || { echo "FAIL: expected 2.0.0, got $VERSION"; exit 1; }
+            echo "PASS: VERSION=$VERSION"
+
   deploy-log:
     docker:
       - image: cimg/base:current
@@ -147,11 +214,17 @@ workflows:
     jobs:
       - test-publish-docker
       - test-publish-docker-with-mirror
+      - test-calc-version-patch
+      - test-calc-version-minor
+      - test-calc-version-major
       - orb-tools/pack:
           persist-to-workspace: true
           requires:
             - test-publish-docker
             - test-publish-docker-with-mirror
+            - test-calc-version-patch
+            - test-calc-version-minor
+            - test-calc-version-major
           filters:
             branches:
               only:
