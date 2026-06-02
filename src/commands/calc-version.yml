@@ -17,9 +17,12 @@ steps:
           PREV_PATCH=$(echo "$LATEST_TAG" | sed 's/^v//' | cut -d. -f3)
           COMMIT_RANGE="${LATEST_TAG}..HEAD"
 
-          # Check for breaking changes (local — zero API calls)
+          # Determine bump type (local — zero API calls)
+          # Precedence: major > minor > patch
           if git log "${COMMIT_RANGE}" --format=%B | grep -qE 'BREAKING CHANGE|^[a-z]+(\([^)]*\))?!:'; then
             VERSION="$((PREV_MAJOR + 1)).0.0"
+          elif git log "${COMMIT_RANGE}" --format=%s | grep -qE '^feat(\([^)]*\))?:'; then
+            VERSION="${PREV_MAJOR}.$((PREV_MINOR + 1)).0"
           else
             VERSION="${PREV_MAJOR}.${PREV_MINOR}.$((PREV_PATCH + 1))"
           fi
