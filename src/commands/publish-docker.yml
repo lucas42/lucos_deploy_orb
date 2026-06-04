@@ -98,20 +98,41 @@ steps:
           exit 1
         fi
         echo "Baking targets: ${TARGETS[*]}"
+        BAKE_ARGS=("${SET_ARGS[@]}")
         if [ -n "<< parameters.platform >>" ]; then
-          docker buildx bake \
-            "${SET_ARGS[@]}" \
-            --set "*.platform=<< parameters.platform >>" \
-            --set "*.args.VERSION=$VERSION" \
-            --push \
-            -f docker-compose.yml \
-            "${TARGETS[@]}"
-        else
-          docker buildx bake \
-            "${SET_ARGS[@]}" \
-            --set "*.args.VERSION=$VERSION" \
-            --push \
-            -f docker-compose.yml \
-            "${TARGETS[@]}"
+          BAKE_ARGS+=(--set "*.platform=<< parameters.platform >>")
         fi
+        BAKE_ARGS+=(--set "*.args.VERSION=$VERSION" --push -f docker-compose.yml "${TARGETS[@]}")
+
+        # Retry the bake/push only on known-transient registry push errors (e.g.
+        # "blob unknown to registry", the BuildKit/Docker Hub push-consistency race).
+        # A genuine build failure does not match these patterns and fails fast, so a
+        # real defect is never masked or tripled in runtime. See lucos_deploy_orb#182.
+        MAX_ATTEMPTS=3
+        TRANSIENT_RE='blob unknown to registry|manifest blob unknown|error reading from server|unexpected EOF'
+        attempt=1
+        while true; do
+          echo "=== Docker Build & Push: attempt ${attempt}/${MAX_ATTEMPTS} ==="
+          set +e
+          docker buildx bake "${BAKE_ARGS[@]}" 2>&1 | tee /tmp/bake_output.log
+          rc=${PIPESTATUS[0]}
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "Docker Build & Push succeeded on attempt ${attempt}."
+            break
+          fi
+          if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
+            echo "Docker Build & Push failed after ${attempt} attempts (exit ${rc}) — giving up." >&2
+            exit "$rc"
+          fi
+          if grep -Eiq "$TRANSIENT_RE" /tmp/bake_output.log; then
+            backoff=$((attempt * 5))
+            echo "Transient registry push error detected — retrying in ${backoff}s (attempt $((attempt + 1))/${MAX_ATTEMPTS})..." >&2
+            sleep "$backoff"
+            attempt=$((attempt + 1))
+          else
+            echo "Non-transient failure (exit ${rc}) — not a known transient push error; failing fast without retry." >&2
+            exit "$rc"
+          fi
+        done
       no_output_timeout: 30m
