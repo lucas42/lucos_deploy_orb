@@ -69,9 +69,16 @@ steps:
 
       # HACK: Not specifying a service should pull all services
       # However, this is failing in docker compose v2.10.2 in a difficult-to-debug manner
-      # As a workaround, parse the list of services from the config file pull each service one-by-one
+      # As a workaround, enumerate the services and pull each one-by-one.
+      #
+      # Use `docker compose config --services` (not `yq` over the raw file) so the list
+      # respects compose profiles. A service gated behind a profile — e.g. a `test` service
+      # that builds a separate image which is deliberately never pushed to the registry — is
+      # excluded, matching the publish step (publish-docker.yml) which also enumerates via
+      # `docker compose config`. Pulling such a service by name bypasses the profile gate and
+      # fails with "pull access denied" (exit 18), because the image was never published.
       command: |
-        yq '.services | keys' docker-compose.y*ml | tr -d '-' | while read service
+        docker compose config --services | while read service
         do
           DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
           ARCH=<< parameters.architecture >> \
