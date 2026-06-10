@@ -8,7 +8,11 @@ parameters:
     default: ""
     description: >
       Comma-separated list of platforms to build for (e.g. "linux/amd64,linux/arm64").
-      Leave empty for single-platform (host architecture) builds.
+      Leave empty to publish a plain image manifest with no platform claim — the artefact
+      is then leniently consumable from any architecture (attestations are suppressed so
+      buildx does not wrap the image in an OCI index that would claim the build-host arch).
+      Pass an explicit single platform (e.g. "linux/amd64") only when the image genuinely
+      targets one architecture.
   mirror_url:
     type: string
     default: "docker.l42.eu"
@@ -101,6 +105,14 @@ steps:
         BAKE_ARGS=("${SET_ARGS[@]}")
         if [ -n "<< parameters.platform >>" ]; then
           BAKE_ARGS+=(--set "*.platform=<< parameters.platform >>")
+        else
+          # No platform requested → emit a plain image manifest (not an OCI index) so the
+          # artefact carries no platform claim and is leniently consumable from any arch.
+          # buildx enables provenance/SBOM attestations by default; those require an OCI
+          # index to hold the extra unknown/unknown manifest, which ends up branded as the
+          # build-host arch (linux/amd64). Disabling them produces a bare
+          # application/vnd.docker.distribution.manifest.v2+json instead. See lucos_deploy_orb#186.
+          BAKE_ARGS+=(--set "*.attest=type=provenance,disabled=true" --set "*.attest=type=sbom,disabled=true")
         fi
         BAKE_ARGS+=(--set "*.args.VERSION=$VERSION" --push -f docker-compose.yml "${TARGETS[@]}")
 

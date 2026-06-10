@@ -35,6 +35,12 @@ jobs:
             source $BASH_ENV
             docker buildx imagetools inspect lucas42/deploy-orb-test:${VERSION}
       - run:
+          name: Assert plain manifest for default platform="" build (regression check for lucos_deploy_orb#186)
+          command: |
+            source $BASH_ENV
+            docker buildx imagetools inspect lucas42/deploy-orb-test:${VERSION} --raw \
+              | jq -e '.mediaType == "application/vnd.docker.distribution.manifest.v2+json"'
+      - run:
           name: Verify :latest tag was pushed (main branch only)
           command: |
             if [ "$CIRCLE_BRANCH" != "main" ]; then
@@ -118,6 +124,12 @@ jobs:
           command: |
             source $BASH_ENV
             docker buildx imagetools inspect lucas42/deploy-orb-test:${VERSION}
+      - run:
+          name: Assert plain manifest for default platform="" build (regression check for lucos_deploy_orb#186)
+          command: |
+            source $BASH_ENV
+            docker buildx imagetools inspect lucas42/deploy-orb-test:${VERSION} --raw \
+              | jq -e '.mediaType == "application/vnd.docker.distribution.manifest.v2+json"'
       - run:
           name: Verify :latest tag was pushed (main branch only)
           command: |
