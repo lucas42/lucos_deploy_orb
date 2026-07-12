@@ -9,6 +9,10 @@ steps:
       name: npm Publish
       command: |
         source $BASH_ENV
-        npm set //registry.npmjs.org/:_authToken=$NPM_TOKEN
+        # OIDC Trusted Publishing (lucas42/lucos_deploy_orb#174) — npm 11.10+ (cimg/node:current)
+        # exchanges this CircleCI-minted OIDC token for a short-lived publish token itself;
+        # no long-lived NPM_TOKEN is used or stored. Requires a Trusted Publisher configured
+        # on npm for this package (org/project/pipeline-definition ID + vcs origin).
+        export NPM_ID_TOKEN=$CIRCLE_OIDC_TOKEN_V2
         npm version $VERSION --no-git-tag-version
         npm publish
