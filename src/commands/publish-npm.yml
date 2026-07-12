@@ -10,9 +10,9 @@ steps:
       command: |
         source $BASH_ENV
         # OIDC Trusted Publishing (lucas42/lucos_deploy_orb#174) — npm 11.10+ (cimg/node:current)
-        # exchanges this CircleCI-minted OIDC token for a short-lived publish token itself;
-        # no long-lived NPM_TOKEN is used or stored. Requires a Trusted Publisher configured
-        # on npm for this package (org/project/pipeline-definition ID + vcs origin).
-        export NPM_ID_TOKEN=$CIRCLE_OIDC_TOKEN_V2
+        # exchanges this token for a short-lived publish token itself; no long-lived NPM_TOKEN
+        # is used or stored. npm's Trusted Publisher exchange requires this exact audience
+        # claim, so the default $CIRCLE_OIDC_TOKEN_V2 (aud = org UUID) won't work.
+        export NPM_ID_TOKEN=$(circleci run oidc get --claims '{"aud": "npm:registry.npmjs.org"}')
         npm version $VERSION --no-git-tag-version
         npm publish
