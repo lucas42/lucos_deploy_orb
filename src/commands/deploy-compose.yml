@@ -105,11 +105,36 @@ steps:
           exit 0
         fi
 
-        # All services in a compose file are conventionally deployed with a single shared
-        # VERSION (see docker-conventions.md's ${VERSION:-latest} templating), so the tag
-        # captured from any one locally-built service identifies the previous deploy.
-        PREV_IMAGE=$(head -1 rollback-targets.env | cut -d= -f2-)
-        PREV_VERSION=${PREV_IMAGE##*:}
+        # Not every captured service is version-driven — a compose file can mix fixed
+        # third-party images (no `${VERSION}`, e.g. a sidecar) with this system's own
+        # ${VERSION}-templated ones (docker-conventions.md). Only a version-driven service's
+        # captured tag is a valid PREV_VERSION; picking blindly by declaration order previously
+        # picked whichever service came first in the file regardless of type (lucos_locations
+        # declares its fixed-image otrecorder sidecar before the templated services — see PR
+        # #194 review). Same detection technique as the host-networked-service lookup above.
+        yq '.services | to_entries | map(select(.value.image | test("\\$\\{?VERSION"))) | .[].key' docker-compose.y*ml 2>/dev/null > version-driven-services.env || : > version-driven-services.env
+        PREV_VERSION=""
+        if [ -s version-driven-services.env ]; then
+          while IFS= read -r vservice; do
+            LINE=$(grep "^${vservice}=" rollback-targets.env || true)
+            if [ -z "$LINE" ]; then
+              continue
+            fi
+            CANDIDATE_VERSION=${LINE##*:}
+            if [ -z "$PREV_VERSION" ]; then
+              PREV_VERSION="$CANDIDATE_VERSION"
+            elif [ "$PREV_VERSION" != "$CANDIDATE_VERSION" ]; then
+              echo "WARNING: version-driven services disagree on previous version ('$PREV_VERSION' vs '$CANDIDATE_VERSION' from $vservice) — using '$PREV_VERSION'"
+            fi
+          done < version-driven-services.env
+        fi
+
+        if [ -z "$PREV_VERSION" ]; then
+          echo "No valid rollback target among version-driven service(s) — nothing to roll back to. Leaving service(s) down, as before."
+          echo "export ROLLBACK_ATTEMPTED=false" >> "$BASH_ENV"
+          exit 0
+        fi
+
         echo "export ROLLBACK_ATTEMPTED=true" >> "$BASH_ENV"
         echo "export ROLLED_BACK_TO_VERSION=$PREV_VERSION" >> "$BASH_ENV"
         echo "Rolling back to previously-running version: $PREV_VERSION"

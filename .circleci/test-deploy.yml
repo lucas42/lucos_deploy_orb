@@ -305,6 +305,58 @@ jobs:
             [ "$ROLLBACK_ATTEMPTED" = "false" ] || { echo "FAIL: ROLLBACK_ATTEMPTED=$ROLLBACK_ATTEMPTED, expected false (no prior container existed)"; exit 1; }
             echo "PASS: first-ever-deploy failure correctly reports no rollback target, matching pre-existing behaviour"
 
+  test-deploy-compose-rollback-multi-service:
+    # Regression test for PR #194 review: a fixed-image sidecar (no ${VERSION} templating,
+    # no healthcheck — e.g. lucos_locations' otrecorder) declared BEFORE the ${VERSION}-driven
+    # service must never be picked as the rollback-version source. Declaration order here
+    # deliberately mirrors that real compose file (sidecar first, app second).
+    machine:
+      image: ubuntu-2204:current
+    steps:
+      - run:
+          name: Export test deploy environment
+          command: |
+            echo "export COMPOSE_PROJECT_NAME=deployorbrollbackmultitest" >> "$BASH_ENV"
+            echo "export HOSTDOMAIN=test-host" >> "$BASH_ENV"
+      - run:
+          name: Build a healthy image and an always-unhealthy image
+          command: |
+            mkdir -p good bad
+            printf 'FROM alpine:latest\nHEALTHCHECK --interval=1s --retries=1 --start-period=1s CMD true\nCMD ["sleep","3600"]\n' > good/Dockerfile
+            printf 'FROM alpine:latest\nHEALTHCHECK --interval=1s --retries=1 --start-period=1s CMD false\nCMD ["sleep","3600"]\n' > bad/Dockerfile
+            docker build -t deploy-orb-rollback-test:good good
+            docker build -t deploy-orb-rollback-test:bad bad
+      - run:
+          name: Write test docker-compose.yml (fixed-image sidecar declared before the app)
+          command: |
+            cat > docker-compose.yml \<< 'EOF'
+            services:
+              sidecar:
+                image: redis:7-alpine
+              app:
+                image: deploy-orb-rollback-test:${VERSION}
+            EOF
+      - run:
+          name: Bootstrap the "previously working" deploy (good version)
+          command: |
+            echo "export VERSION=good" >> "$BASH_ENV"
+            source "$BASH_ENV"
+            docker compose up -d --no-build --wait --wait-timeout 30
+      - run:
+          name: Set VERSION for the failing deploy attempt
+          command: echo "export VERSION=bad" >> "$BASH_ENV"
+      - deploy/deploy-compose
+      - run:
+          name: Assert rollback picked the version-driven service, not the sidecar declared before it
+          command: |
+            [ "$DEPLOY_SUCCEEDED" = "false" ] || { echo "FAIL: DEPLOY_SUCCEEDED=$DEPLOY_SUCCEEDED, expected false"; exit 1; }
+            [ "$ROLLBACK_ATTEMPTED" = "true" ] || { echo "FAIL: ROLLBACK_ATTEMPTED=$ROLLBACK_ATTEMPTED, expected true"; exit 1; }
+            [ "$ROLLBACK_STATUS" = "succeeded" ] || { echo "FAIL: ROLLBACK_STATUS=$ROLLBACK_STATUS, expected succeeded"; exit 1; }
+            [ "$ROLLED_BACK_TO_VERSION" = "good" ] || { echo "FAIL: rolled back to '$ROLLED_BACK_TO_VERSION', expected 'good' (got the sidecar's tag instead of the app's?)"; exit 1; }
+            RUNNING_IMAGE=$(docker inspect --format '{{.Config.Image}}' "$(docker compose ps -aq app)")
+            [ "$RUNNING_IMAGE" = "deploy-orb-rollback-test:good" ] || { echo "FAIL: running image is '$RUNNING_IMAGE', expected deploy-orb-rollback-test:good"; exit 1; }
+            echo "PASS: rollback correctly picked the version-driven app service despite the sidecar being declared first"
+
 workflows:
   test-deploy:
     jobs:
@@ -315,6 +367,7 @@ workflows:
       - test-calc-version-major
       - test-deploy-compose-rollback
       - test-deploy-compose-no-rollback-target
+      - test-deploy-compose-rollback-multi-service
       - orb-tools/pack:
           persist-to-workspace: true
           requires:
@@ -325,6 +378,7 @@ workflows:
             - test-calc-version-major
             - test-deploy-compose-rollback
             - test-deploy-compose-no-rollback-target
+            - test-deploy-compose-rollback-multi-service
           filters:
             branches:
               only:
