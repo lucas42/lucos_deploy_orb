@@ -110,73 +110,17 @@ steps:
           -H "Authorization: Bearer $KEY_LUCOS_MONITORING" \
           --max-time 5 || true
   - run:
-      name: Stop host-networked services before recreating
+      name: Export deploy target environment
       command: |
-        # Services using network_mode: host bind directly to the host's network stack, so
-        # the new container races the old one for the same port. Stop the old container first
-        # to avoid the eaddrinuse crash-loop that --wait catches as a failed deploy.
-        # Bridge-networked services can coexist briefly during rolling update; skip this step.
-        HOST_SERVICES=$(yq '.services | to_entries | map(select(.value.network_mode == "host")) | .[].key' docker-compose.y*ml 2>/dev/null | tr '\n' ' ')
-        if [ -n "$HOST_SERVICES" ]; then
-          echo "network_mode: host detected — stopping existing container(s) before up: $HOST_SERVICES"
-          DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
-          COMPOSE_PROJECT_NAME=$CIRCLE_PROJECT_REPONAME \
-          docker compose stop $HOST_SERVICES
-        else
-          echo "No host-networked services detected — skipping stop step"
-        fi
-  - run:
-      name: Deploy using docker compose
-      command: |
-        export DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>"
-        export COMPOSE_PROJECT_NAME=$CIRCLE_PROJECT_REPONAME
-        export ARCH=<< parameters.architecture >>
-        export PRODUCTION=true
-        export HOSTDOMAIN=<< parameters.host-domain >>
-
-        MAX_ATTEMPTS=3
-        for attempt in $(seq 1 $MAX_ATTEMPTS); do
-          echo "Deploy attempt $attempt of $MAX_ATTEMPTS"
-          if docker compose up -d --no-build --wait --wait-timeout 180; then
-            exit 0
-          fi
-
-          if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
-            # Start any containers stuck in "Created" state before retrying.
-            # When --wait-timeout expires before a dependency becomes healthy,
-            # containers using depends_on with condition: service_healthy are
-            # left in Created state. They were never started, so restart: always
-            # cannot recover them — they need an explicit start.
-            CREATED=$(docker ps -a \
-              --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME" \
-              --filter "status=created" -q)
-            if [ -n "$CREATED" ]; then
-              echo "Found containers in Created state — starting them before retry"
-              docker start $CREATED
-            fi
-
-            # Restart any containers that reached "unhealthy" state.
-            # docker compose up --wait exits immediately when a container's healthcheck
-            # is in a terminal "unhealthy" state, making further retries no-ops.
-            # Restarting resets the healthcheck back into its start_period window.
-            UNHEALTHY=$(docker ps \
-              --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME" \
-              --filter "health=unhealthy" \
-              --format '{{.Names}}')
-            if [ -n "$UNHEALTHY" ]; then
-              echo "Found unhealthy containers — restarting to reset healthcheck state"
-              docker restart $UNHEALTHY
-            fi
-
-            sleep 15
-          fi
-        done
-
-        exit 1
+        echo "export DOCKER_HOST=ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" >> "$BASH_ENV"
+        echo "export COMPOSE_PROJECT_NAME=$CIRCLE_PROJECT_REPONAME" >> "$BASH_ENV"
+        echo "export ARCH=<< parameters.architecture >>" >> "$BASH_ENV"
+        echo "export PRODUCTION=true" >> "$BASH_ENV"
+        echo "export HOSTDOMAIN=<< parameters.host-domain >>" >> "$BASH_ENV"
+  - deploy-compose
   - run:
       name: Prune unused Docker images
       command: |
-        DOCKER_HOST="ssh://docker-deploy@<< parameters.host-domain >>:<< parameters.ssh-port >>" \
         docker image prune -f || true
   - run:
       name: Delete envfile
@@ -186,15 +130,32 @@ steps:
       name: Send deploy log to loganne
       # Loganne often fails to respond in time if it itself (or lucos_router) has just been
       # deployed and hasn't yet finished starting up.  On fail, wait 30 secs and try again.
+      # Runs even after a failed deploy (DEPLOY_SUCCEEDED=false) — a silently-skipped log
+      # entry would leave no trace of the attempted version in the feed; deployRollback
+      # (fired from deploy-compose when a rollback happens) covers the rollback outcome
+      # itself, this event covers "this version was attempted" regardless of outcome.
       command: |
+        if [ "$DEPLOY_SUCCEEDED" = "true" ]; then
+          HUMAN_READABLE="Deployed $CIRCLE_PROJECT_REPONAME v$VERSION to << parameters.host-domain >>"
+        else
+          HUMAN_READABLE="Deploy of $CIRCLE_PROJECT_REPONAME v$VERSION to << parameters.host-domain >> FAILED"
+        fi
         curl https://loganne.l42.eu/events --data '{
           "type":"deploySystem",
           "source":"lucos_deploy_orb",
           "systemDeployed":"'"$CIRCLE_PROJECT_REPONAME"'",
           "deployTarget":"<< parameters.host-domain >>",
           "sshPort":"<< parameters.ssh-port >>",
-          "humanReadable":"Deployed '"$CIRCLE_PROJECT_REPONAME"' v'"$VERSION"' to << parameters.host-domain >>",
-          "version":"'"$VERSION"'"
+          "humanReadable":"'"$HUMAN_READABLE"'",
+          "version":"'"$VERSION"'",
+          "deploySucceeded":'"${DEPLOY_SUCCEEDED:-true}"'
         }' -H "Content-Type: application/json" --fail
       max_auto_reruns: 5
       auto_rerun_delay: 30s
+  - run:
+      name: Fail job if deploy did not succeed
+      command: |
+        if [ "$DEPLOY_SUCCEEDED" != "true" ]; then
+          echo "Deploy of v$VERSION did not succeed — failing the job (even if a rollback above restored the previous version)."
+          exit 1
+        fi

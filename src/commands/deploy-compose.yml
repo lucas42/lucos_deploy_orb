@@ -1,0 +1,137 @@
+description: >
+  Deploys the current directory's docker-compose.yml, retrying up to 3 times
+  on healthcheck failure. If all retries are exhausted, rolls back to
+  whichever image was running (and healthy, or had no healthcheck defined)
+  for each service immediately before this command started, redeploying it
+  via the same VERSION-driven `docker compose up` path. Emits a distinct
+  `deployRollback` Loganne event whenever a rollback is attempted, regardless
+  of whether the rollback itself succeeds.
+
+  This command never exits non-zero itself — instead it exports
+  DEPLOY_SUCCEEDED (true/false), and on failure also ROLLBACK_ATTEMPTED
+  (true/false), ROLLBACK_STATUS (succeeded/failed) and
+  ROLLED_BACK_TO_VERSION, all to $BASH_ENV. It is the caller's
+  responsibility to fail the job when DEPLOY_SUCCEEDED != true (see "Fail
+  job if deploy did not succeed" in deploy.yml) — this keeps the mechanism
+  itself testable without the CircleCI job dying the instant the "deploy
+  failed, rollback happened" path is exercised on purpose.
+
+  Assumes DOCKER_HOST (may be unset, for a local Docker daemon),
+  COMPOSE_PROJECT_NAME, VERSION and HOSTDOMAIN are already exported into the
+  environment (e.g. via $BASH_ENV) by the caller, and that the working
+  directory contains the docker-compose.yml to deploy.
+steps:
+  - run:
+      name: Capture pre-deploy container images for rollback
+      command: |
+        : > rollback-targets.env
+        docker compose config --services | while read -r service; do
+          CONTAINER_ID=$(docker compose ps -aq "$service")
+          if [ -z "$CONTAINER_ID" ]; then
+            echo "$service: no existing container — no rollback target"
+            continue
+          fi
+          HEALTH=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$CONTAINER_ID")
+          if [ "$HEALTH" != "healthy" ] && [ "$HEALTH" != "none" ]; then
+            echo "$service: existing container health is '$HEALTH' — not a valid rollback target"
+            continue
+          fi
+          IMAGE=$(docker inspect --format '{{.Config.Image}}' "$CONTAINER_ID")
+          echo "$service=$IMAGE" >> rollback-targets.env
+          echo "$service: captured rollback target $IMAGE (health: $HEALTH)"
+        done
+  - run:
+      name: Stop host-networked services before recreating
+      command: |
+        # Services using network_mode: host bind directly to the host's network stack, so
+        # the new container races the old one for the same port. Stop the old container first
+        # to avoid the eaddrinuse crash-loop that --wait catches as a failed deploy.
+        # Bridge-networked services can coexist briefly during rolling update; skip this step.
+        HOST_SERVICES=$(yq '.services | to_entries | map(select(.value.network_mode == "host")) | .[].key' docker-compose.y*ml 2>/dev/null | tr '\n' ' ')
+        if [ -n "$HOST_SERVICES" ]; then
+          echo "network_mode: host detected — stopping existing container(s) before up: $HOST_SERVICES"
+          docker compose stop $HOST_SERVICES
+        else
+          echo "No host-networked services detected — skipping stop step"
+        fi
+  - run:
+      name: Deploy using docker compose (retries, rolls back on exhausted retries)
+      command: |
+        MAX_ATTEMPTS=3
+        for attempt in $(seq 1 $MAX_ATTEMPTS); do
+          echo "Deploy attempt $attempt of $MAX_ATTEMPTS"
+          if docker compose up -d --no-build --wait --wait-timeout 180; then
+            echo "export DEPLOY_SUCCEEDED=true" >> "$BASH_ENV"
+            exit 0
+          fi
+
+          if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
+            # Start any containers stuck in "Created" state before retrying.
+            # When --wait-timeout expires before a dependency becomes healthy,
+            # containers using depends_on with condition: service_healthy are
+            # left in Created state. They were never started, so restart: always
+            # cannot recover them — they need an explicit start.
+            CREATED=$(docker ps -a \
+              --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME" \
+              --filter "status=created" -q)
+            if [ -n "$CREATED" ]; then
+              echo "Found containers in Created state — starting them before retry"
+              docker start $CREATED
+            fi
+
+            # Restart any containers that reached "unhealthy" state.
+            # docker compose up --wait exits immediately when a container's healthcheck
+            # is in a terminal "unhealthy" state, making further retries no-ops.
+            # Restarting resets the healthcheck back into its start_period window.
+            UNHEALTHY=$(docker ps \
+              --filter "label=com.docker.compose.project=$COMPOSE_PROJECT_NAME" \
+              --filter "health=unhealthy" \
+              --format '{{.Names}}')
+            if [ -n "$UNHEALTHY" ]; then
+              echo "Found unhealthy containers — restarting to reset healthcheck state"
+              docker restart $UNHEALTHY
+            fi
+
+            sleep 15
+          fi
+        done
+
+        echo "Deploy of version $VERSION failed after $MAX_ATTEMPTS attempts"
+        echo "export DEPLOY_SUCCEEDED=false" >> "$BASH_ENV"
+
+        if [ ! -s rollback-targets.env ]; then
+          echo "No pre-deploy container was captured for any service — nothing to roll back to. Leaving service(s) down, as before."
+          echo "export ROLLBACK_ATTEMPTED=false" >> "$BASH_ENV"
+          exit 0
+        fi
+
+        # All services in a compose file are conventionally deployed with a single shared
+        # VERSION (see docker-conventions.md's ${VERSION:-latest} templating), so the tag
+        # captured from any one locally-built service identifies the previous deploy.
+        PREV_IMAGE=$(head -1 rollback-targets.env | cut -d= -f2-)
+        PREV_VERSION=${PREV_IMAGE##*:}
+        echo "export ROLLBACK_ATTEMPTED=true" >> "$BASH_ENV"
+        echo "export ROLLED_BACK_TO_VERSION=$PREV_VERSION" >> "$BASH_ENV"
+        echo "Rolling back to previously-running version: $PREV_VERSION"
+
+        if VERSION="$PREV_VERSION" docker compose up -d --no-build --wait --wait-timeout 180; then
+          ROLLBACK_STATUS="succeeded"
+          echo "Rollback succeeded — v$PREV_VERSION is running again. This deploy of v$VERSION is still reported as FAILED."
+        else
+          ROLLBACK_STATUS="failed"
+          echo "Rollback attempt also failed — service(s) may still be down."
+        fi
+        echo "export ROLLBACK_STATUS=$ROLLBACK_STATUS" >> "$BASH_ENV"
+
+        curl https://loganne.l42.eu/events --data '{
+          "type":"deployRollback",
+          "source":"lucos_deploy_orb",
+          "systemDeployed":"'"$CIRCLE_PROJECT_REPONAME"'",
+          "deployTarget":"'"$HOSTDOMAIN"'",
+          "failedVersion":"'"$VERSION"'",
+          "rolledBackToVersion":"'"$PREV_VERSION"'",
+          "rollbackStatus":"'"$ROLLBACK_STATUS"'",
+          "humanReadable":"Deploy of '"$CIRCLE_PROJECT_REPONAME"' v'"$VERSION"' to '"$HOSTDOMAIN"' failed its healthcheck; rollback to v'"$PREV_VERSION"' '"$ROLLBACK_STATUS"'"
+        }' -H "Content-Type: application/json" --max-time 10 || echo "WARNING: failed to send deployRollback event to loganne"
+
+        exit 0

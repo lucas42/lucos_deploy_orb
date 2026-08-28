@@ -221,6 +221,90 @@ jobs:
               "humanReadable":"Published circleci orb '"$CIRCLE_PROJECT_REPONAME"'"
             }' -H "Content-Type: application/json" --fail
 
+  test-deploy-compose-rollback:
+    # Exercises the real deploy/deploy-compose command (lucos_deploy_orb#192) against a
+    # local Docker daemon — no SSH/live host needed, since deploy-compose itself never
+    # references DOCKER_HOST directly, only whatever the caller already exported.
+    machine:
+      image: ubuntu-2204:current
+    steps:
+      - run:
+          name: Export test deploy environment
+          command: |
+            echo "export COMPOSE_PROJECT_NAME=deployorbrollbacktest" >> "$BASH_ENV"
+            echo "export HOSTDOMAIN=test-host" >> "$BASH_ENV"
+      - run:
+          name: Build a healthy image and an always-unhealthy image
+          command: |
+            mkdir -p good bad
+            printf 'FROM alpine:latest\nHEALTHCHECK --interval=1s --retries=1 --start-period=1s CMD true\nCMD ["sleep","3600"]\n' > good/Dockerfile
+            printf 'FROM alpine:latest\nHEALTHCHECK --interval=1s --retries=1 --start-period=1s CMD false\nCMD ["sleep","3600"]\n' > bad/Dockerfile
+            docker build -t deploy-orb-rollback-test:good good
+            docker build -t deploy-orb-rollback-test:bad bad
+      - run:
+          name: Write test docker-compose.yml
+          command: |
+            cat > docker-compose.yml \<< 'EOF'
+            services:
+              app:
+                image: deploy-orb-rollback-test:${VERSION}
+            EOF
+      - run:
+          name: Bootstrap the "previously working" deploy (good version)
+          command: |
+            echo "export VERSION=good" >> "$BASH_ENV"
+            source "$BASH_ENV"
+            docker compose up -d --no-build --wait --wait-timeout 30
+      - run:
+          name: Set VERSION for the failing deploy attempt
+          command: echo "export VERSION=bad" >> "$BASH_ENV"
+      - deploy/deploy-compose
+      - run:
+          name: Assert deploy reported failure, rollback attempted+succeeded, previous image running
+          command: |
+            [ "$DEPLOY_SUCCEEDED" = "false" ] || { echo "FAIL: DEPLOY_SUCCEEDED=$DEPLOY_SUCCEEDED, expected false"; exit 1; }
+            [ "$ROLLBACK_ATTEMPTED" = "true" ] || { echo "FAIL: ROLLBACK_ATTEMPTED=$ROLLBACK_ATTEMPTED, expected true"; exit 1; }
+            [ "$ROLLBACK_STATUS" = "succeeded" ] || { echo "FAIL: ROLLBACK_STATUS=$ROLLBACK_STATUS, expected succeeded"; exit 1; }
+            [ "$ROLLED_BACK_TO_VERSION" = "good" ] || { echo "FAIL: rolled back to '$ROLLED_BACK_TO_VERSION', expected 'good'"; exit 1; }
+            RUNNING_IMAGE=$(docker inspect --format '{{.Config.Image}}' "$(docker compose ps -aq app)")
+            [ "$RUNNING_IMAGE" = "deploy-orb-rollback-test:good" ] || { echo "FAIL: running image is '$RUNNING_IMAGE', expected deploy-orb-rollback-test:good"; exit 1; }
+            echo "PASS: failed deploy correctly rolled back to the previously-healthy image, which is running, and the deploy is still reported as failed"
+
+  test-deploy-compose-no-rollback-target:
+    # First-ever-deploy case: no prior container exists, so there is nothing to roll back
+    # to — assert the deploy still just fails and reports no rollback attempt (today's
+    # pre-#192 behaviour, unchanged for this case).
+    machine:
+      image: ubuntu-2204:current
+    steps:
+      - run:
+          name: Export test deploy environment
+          command: |
+            echo "export COMPOSE_PROJECT_NAME=deployorbnotargettest" >> "$BASH_ENV"
+            echo "export HOSTDOMAIN=test-host" >> "$BASH_ENV"
+            echo "export VERSION=bad" >> "$BASH_ENV"
+      - run:
+          name: Build an always-unhealthy image (no prior good deploy exists)
+          command: |
+            mkdir -p bad
+            printf 'FROM alpine:latest\nHEALTHCHECK --interval=1s --retries=1 --start-period=1s CMD false\nCMD ["sleep","3600"]\n' > bad/Dockerfile
+            docker build -t deploy-orb-rollback-test:bad bad
+      - run:
+          name: Write test docker-compose.yml
+          command: |
+            cat > docker-compose.yml \<< 'EOF'
+            services:
+              app:
+                image: deploy-orb-rollback-test:${VERSION}
+            EOF
+      - deploy/deploy-compose
+      - run:
+          name: Assert deploy reported failure with no rollback attempted (first-ever deploy case)
+          command: |
+            [ "$DEPLOY_SUCCEEDED" = "false" ] || { echo "FAIL: DEPLOY_SUCCEEDED=$DEPLOY_SUCCEEDED, expected false"; exit 1; }
+            [ "$ROLLBACK_ATTEMPTED" = "false" ] || { echo "FAIL: ROLLBACK_ATTEMPTED=$ROLLBACK_ATTEMPTED, expected false (no prior container existed)"; exit 1; }
+            echo "PASS: first-ever-deploy failure correctly reports no rollback target, matching pre-existing behaviour"
+
 workflows:
   test-deploy:
     jobs:
@@ -229,6 +313,8 @@ workflows:
       - test-calc-version-patch
       - test-calc-version-minor
       - test-calc-version-major
+      - test-deploy-compose-rollback
+      - test-deploy-compose-no-rollback-target
       - orb-tools/pack:
           persist-to-workspace: true
           requires:
@@ -237,6 +323,8 @@ workflows:
             - test-calc-version-patch
             - test-calc-version-minor
             - test-calc-version-major
+            - test-deploy-compose-rollback
+            - test-deploy-compose-no-rollback-target
           filters:
             branches:
               only:
