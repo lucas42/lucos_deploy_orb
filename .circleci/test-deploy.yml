@@ -38,8 +38,16 @@ jobs:
           name: Assert plain manifest for default platform="" build (regression check for lucos_deploy_orb#186)
           command: |
             source $BASH_ENV
+            # Not an exact mediaType match (lucos_deploy_orb#195 — BuildKit's
+            # default single-manifest media type has since moved from Docker
+            # v2 to OCI v1, with no code change on our side). Check the
+            # structural property #186 actually cared about instead: an
+            # index/manifest-list always carries a top-level `.manifests`
+            # array; a single manifest never does. That's stable across
+            # whichever media-type vocabulary BuildKit uses, so this won't
+            # need touching again the next time that vocabulary drifts.
             docker buildx imagetools inspect lucas42/deploy-orb-test:${VERSION} --raw \
-              | jq -e '.mediaType == "application/vnd.docker.distribution.manifest.v2+json"'
+              | jq -e '.manifests == null and .config != null'
       - run:
           name: Verify :latest tag was pushed (main branch only)
           command: |
@@ -128,8 +136,16 @@ jobs:
           name: Assert plain manifest for default platform="" build (regression check for lucos_deploy_orb#186)
           command: |
             source $BASH_ENV
+            # Not an exact mediaType match (lucos_deploy_orb#195 — BuildKit's
+            # default single-manifest media type has since moved from Docker
+            # v2 to OCI v1, with no code change on our side). Check the
+            # structural property #186 actually cared about instead: an
+            # index/manifest-list always carries a top-level `.manifests`
+            # array; a single manifest never does. That's stable across
+            # whichever media-type vocabulary BuildKit uses, so this won't
+            # need touching again the next time that vocabulary drifts.
             docker buildx imagetools inspect lucas42/deploy-orb-test:${VERSION} --raw \
-              | jq -e '.mediaType == "application/vnd.docker.distribution.manifest.v2+json"'
+              | jq -e '.manifests == null and .config != null'
       - run:
           name: Verify :latest tag was pushed (main branch only)
           command: |
