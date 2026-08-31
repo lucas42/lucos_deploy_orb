@@ -38,8 +38,9 @@ jobs:
           name: Assert plain manifest for default platform="" build (regression check for lucos_deploy_orb#186)
           command: |
             source $BASH_ENV
+            # Structural "not an index" check, not a mediaType match (#195).
             docker buildx imagetools inspect lucas42/deploy-orb-test:${VERSION} --raw \
-              | jq -e '.mediaType == "application/vnd.docker.distribution.manifest.v2+json"'
+              | jq -e '.manifests == null and .config != null'
       - run:
           name: Verify :latest tag was pushed (main branch only)
           command: |
@@ -128,8 +129,9 @@ jobs:
           name: Assert plain manifest for default platform="" build (regression check for lucos_deploy_orb#186)
           command: |
             source $BASH_ENV
+            # Structural "not an index" check, not a mediaType match (#195).
             docker buildx imagetools inspect lucas42/deploy-orb-test:${VERSION} --raw \
-              | jq -e '.mediaType == "application/vnd.docker.distribution.manifest.v2+json"'
+              | jq -e '.manifests == null and .config != null'
       - run:
           name: Verify :latest tag was pushed (main branch only)
           command: |
